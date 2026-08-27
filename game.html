@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+
 <meta name="viewport"
-content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,orientation:landscape">
+content="width=device-width,
+initial-scale=1,
+maximum-scale=1,
+user-scalable=no,
+viewport-fit=cover">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
 
 <title>SpaceCrew</title>
 
@@ -15,252 +22,316 @@ content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,ori
 
 html,body{
   margin:0;
+  padding:0;
   width:100%;
   height:100%;
   overflow:hidden;
-  background:#080b15;
+  position:fixed;
+  background:#101522;
   touch-action:none;
+  overscroll-behavior:none;
   font-family:Arial,sans-serif;
+}
+
+body{
+  width:100vw;
+  height:100vh;
 }
 
 canvas{
   display:block;
   width:100%;
   height:100%;
+  touch-action:none;
 }
 
 #hud{
   position:fixed;
   top:12px;
   left:12px;
-  z-index:5;
-  padding:9px 13px;
-  border-radius:12px;
-  background:#070a13cc;
-  border:1px solid #ffffff22;
+  z-index:20;
   color:white;
+  background:rgba(7,10,18,.75);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:12px;
+  padding:9px 13px;
+  font-size:13px;
   font-weight:800;
   pointer-events:none;
 }
 
 #joystick{
   position:fixed;
+  z-index:30;
   left:22px;
-  bottom:20px;
+  bottom:22px;
   width:125px;
   height:125px;
   border-radius:50%;
-  background:#ffffff12;
-  border:2px solid #ffffff30;
-  z-index:10;
+  background:rgba(255,255,255,.08);
+  border:2px solid rgba(255,255,255,.18);
+  touch-action:none;
 }
 
 #stick{
   position:absolute;
-  left:34px;
-  top:34px;
-  width:55px;
-  height:55px;
+  width:54px;
+  height:54px;
+  left:33px;
+  top:33px;
   border-radius:50%;
-  background:#ffffff40;
-  border:2px solid #ffffff70;
+  background:rgba(255,255,255,.32);
+  border:2px solid rgba(255,255,255,.55);
+  pointer-events:none;
 }
 
-#rotate{
+#landscape{
+  display:none;
   position:fixed;
-  right:20px;
-  bottom:25px;
-  color:#ffffff88;
-  font-size:12px;
+  z-index:100;
+  inset:0;
+  background:#090d18;
+  color:white;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  font-size:20px;
+  font-weight:bold;
+  padding:30px;
+}
+
+@media (orientation:portrait){
+  #landscape{
+    display:flex;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">SPACECREW • <span id="name">CREWMATE</span></div>
+<div id="landscape">
+  ↻<br><br>
+  Rotate your phone horizontally
+</div>
+
+<div id="hud">
+  SPACECREW
+</div>
 
 <div id="joystick">
   <div id="stick"></div>
-</div>
-
-<div id="rotate">
-  LANDSCAPE MODE
 </div>
 
 <canvas id="game"></canvas>
 
 <script>
 
-/* =====================================
+/* =====================================================
    CANVAS
-===================================== */
+===================================================== */
 
-const canvas =
-document.getElementById("game");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-const ctx =
-canvas.getContext("2d");
-
-let W=0;
-let H=0;
+let vw=0;
+let vh=0;
+let dpr=1;
 
 function resize(){
 
-  W=canvas.width=innerWidth;
-  H=canvas.height=innerHeight;
+  vw=window.innerWidth;
+  vh=window.innerHeight;
+
+  dpr=Math.min(window.devicePixelRatio||1,2);
+
+  canvas.width=Math.floor(vw*dpr);
+  canvas.height=Math.floor(vh*dpr);
+
+  canvas.style.width=vw+"px";
+  canvas.style.height=vh+"px";
+
+  ctx.setTransform(dpr,0,0,dpr,0,0);
 
 }
 
 resize();
 
-addEventListener("resize",resize);
+window.addEventListener("resize",resize);
 
 
-/* =====================================
-   PLAYER
-===================================== */
+/* =====================================================
+   WORLD
+===================================================== */
 
-const player={
-  x:0,
-  y:0,
-  speed:2.7,
-  color:"#5865f2",
-  name:"CREWMATE"
-};
-
-
-/* =====================================
-   MAP
-===================================== */
-
-const MAP_W=2600;
-const MAP_H=1500;
+const WORLD_W=3200;
+const WORLD_H=1900;
 
 
 /*
-  საკუთარი SpaceCrew რუკა:
-  ცენტრალური ოთახი
-  მარცხენა ოთახები
-  მარჯვენა ოთახები
-  ზედა/ქვედა ოთახები
+   Room areas.
+   These are deliberately irregular,
+   so the map feels like a real spaceship
+   instead of a few giant rectangles.
 */
 
 const rooms=[
-  {x:900,y:480,w:800,h:540},
-  {x:150,y:250,w:520,h:400},
-  {x:1930,y:230,w:500,h:420},
-  {x:150,y:900,w:520,h:400},
-  {x:1940,y:900,w:500,h:400},
-  {x:950,y:80,w:700,h:250},
-  {x:950,y:1170,w:700,h:250}
+
+  {x:130,y:170,w:620,h:430},
+
+  {x:1080,y:120,w:780,h:440},
+
+  {x:2180,y:170,w:780,h:430},
+
+  {x:820,y:720,w:1560,h:470},
+
+  {x:130,y:1300,w:650,h:430},
+
+  {x:1050,y:1390,w:700,h:360},
+
+  {x:2080,y:1280,w:880,h:450}
+
 ];
 
 
-/* =====================================
-   WALLS
-===================================== */
+/* =====================================================
+   COLLISION WALLS
+===================================================== */
 
 const walls=[];
 
-function addWall(x,y,w,h){
+function wall(x,y,w,h){
   walls.push({x,y,w,h});
 }
 
 
+/* LEFT TOP */
+
+wall(130,170,620,28);
+wall(130,170,28,430);
+wall(722,170,28,155);
+wall(722,445,28,155);
+wall(130,572,215,28);
+wall(535,572,215,28);
+
+
+/* TOP CENTER */
+
+wall(1080,120,780,28);
+wall(1080,532,780,28);
+
+wall(1080,120,28,145);
+wall(1080,390,28,142);
+
+wall(1832,120,28,130);
+wall(1832,410,28,122);
+
+
+/* RIGHT TOP */
+
+wall(2180,170,780,28);
+wall(2180,572,780,28);
+
+wall(2180,170,28,150);
+wall(2180,420,28,152);
+
+wall(2932,170,28,180);
+wall(2932,390,28,182);
+
+
+/* CENTRAL AREA */
+
+/* left wall */
+wall(820,720,28,145);
+wall(820,1035,28,155);
+
+/* right wall */
+wall(2352,720,28,170);
+wall(2352,1025,28,165);
+
+
+/* upper central */
+wall(850,720,280,28);
+wall(1420,720,420,28);
+wall(2130,720,222,28);
+
+/* lower central */
+wall(850,1162,300,28);
+wall(1450,1162,380,28);
+wall(2100,1162,252,28);
+
+
+/* LEFT BOTTOM */
+
+wall(130,1300,650,28);
+wall(130,1702,650,28);
+
+wall(130,1300,28,402);
+wall(752,1300,28,150);
+wall(752,1550,28,152);
+
+
+/* BOTTOM CENTER */
+
+wall(1050,1390,700,28);
+wall(1050,1722,700,28);
+
+wall(1050,1390,28,120);
+wall(1050,1640,28,82);
+
+wall(1722,1390,28,145);
+wall(1722,1640,28,82);
+
+
+/* RIGHT BOTTOM */
+
+wall(2080,1280,880,28);
+wall(2080,1702,880,28);
+
+wall(2080,1280,28,150);
+wall(2080,1550,28,152);
+
+wall(2932,1280,28,170);
+wall(2932,1550,28,152);
+
+
+/* =====================================================
+   PLAYER
+===================================================== */
+
+const player={
+  x:1600,
+  y:940,
+  radius:25,
+  speed:235,
+  color:"#5967f2",
+  angle:0
+};
+
+
+/* =====================================================
+   CAMERA
+===================================================== */
+
+const camera={
+  x:0,
+  y:0
+};
+
+
 /*
- CENTRAL
+  Fixed zoom.
+
+  It NEVER changes during gameplay.
+  This is important for iPhone performance.
 */
 
-addWall(900,480,800,25);
-addWall(900,995,800,25);
-
-addWall(900,480,25,180);
-addWall(900,850,25,170);
-
-addWall(1675,480,25,180);
-addWall(1675,850,25,170);
+const CAMERA_ZOOM=1;
 
 
-/*
- LEFT TOP
-*/
-
-addWall(150,250,520,25);
-addWall(150,625,520,25);
-addWall(150,250,25,375);
-addWall(645,250,25,130);
-addWall(645,500,25,125);
-
-
-/*
- LEFT BOTTOM
-*/
-
-addWall(150,900,520,25);
-addWall(150,1275,520,25);
-addWall(150,900,25,375);
-addWall(645,900,25,130);
-addWall(645,1150,25,125);
-
-
-/*
- RIGHT TOP
-*/
-
-addWall(1930,230,500,25);
-addWall(1930,625,500,25);
-addWall(1930,230,25,395);
-addWall(2405,230,25,395);
-
-
-/*
- RIGHT BOTTOM
-*/
-
-addWall(1940,900,500,25);
-addWall(1940,1275,500,25);
-addWall(1940,900,25,375);
-addWall(2415,900,25,375);
-
-
-/*
- TOP
-*/
-
-addWall(950,80,700,25);
-addWall(950,305,700,25);
-addWall(950,80,25,90);
-addWall(950,215,25,90);
-
-addWall(1625,80,25,90);
-addWall(1625,215,25,90);
-
-
-/*
- BOTTOM
-*/
-
-addWall(950,1170,700,25);
-addWall(950,1420,700,25);
-addWall(950,1170,25,80);
-addWall(950,1340,25,80);
-
-addWall(1625,1170,25,80);
-addWall(1625,1340,25,80);
-
-
-/* =====================================
-   START
-===================================== */
-
-player.x=1300;
-player.y=750;
-
-
-/* =====================================
+/* =====================================================
    JOYSTICK
-===================================== */
+===================================================== */
 
 const joystick=
 document.getElementById("joystick");
@@ -268,134 +339,159 @@ document.getElementById("joystick");
 const stick=
 document.getElementById("stick");
 
-let moveX=0;
-let moveY=0;
-let active=false;
+let joyX=0;
+let joyY=0;
+let joystickActive=false;
+let pointerId=null;
 
-function joystickMove(x,y){
+function updateJoystick(clientX,clientY){
 
-  const r=
-  joystick.getBoundingClientRect();
+  const r=joystick.getBoundingClientRect();
 
-  const cx=
-  r.left+r.width/2;
+  const cx=r.left+r.width/2;
+  const cy=r.top+r.height/2;
 
-  const cy=
-  r.top+r.height/2;
-
-  let dx=x-cx;
-  let dy=y-cy;
+  let dx=clientX-cx;
+  let dy=clientY-cy;
 
   const max=38;
 
-  const d=
-  Math.sqrt(dx*dx+dy*dy);
+  const distance=Math.hypot(dx,dy);
 
-  if(d>max){
+  if(distance>max){
 
-    dx=dx/d*max;
-    dy=dy/d*max;
+    dx=dx/distance*max;
+    dy=dy/distance*max;
 
   }
 
-  stick.style.transform=
-  `translate(${dx}px,${dy}px)`;
+  joyX=dx/max;
+  joyY=dy/max;
 
-  moveX=dx/max;
-  moveY=dy/max;
+  stick.style.transform=
+    "translate("+dx+"px,"+dy+"px)";
 
 }
 
-
 joystick.addEventListener(
-"pointerdown",
-e=>{
+  "pointerdown",
+  e=>{
 
-  active=true;
+    e.preventDefault();
 
-  joystick.setPointerCapture(
-    e.pointerId
-  );
+    joystickActive=true;
+    pointerId=e.pointerId;
 
-  joystickMove(
-    e.clientX,
-    e.clientY
-  );
+    try{
+      joystick.setPointerCapture(pointerId);
+    }catch{}
 
-});
-
-
-joystick.addEventListener(
-"pointermove",
-e=>{
-
-  if(active)
-    joystickMove(
+    updateJoystick(
       e.clientX,
       e.clientY
     );
 
-});
+  },
+  {passive:false}
+);
 
+joystick.addEventListener(
+  "pointermove",
+  e=>{
 
-function stop(){
+    if(!joystickActive) return;
 
-  active=false;
+    e.preventDefault();
 
-  moveX=0;
-  moveY=0;
+    updateJoystick(
+      e.clientX,
+      e.clientY
+    );
+
+  },
+  {passive:false}
+);
+
+function stopJoystick(){
+
+  joystickActive=false;
+
+  joyX=0;
+  joyY=0;
 
   stick.style.transform=
-  "translate(0,0)";
+    "translate(0px,0px)";
 
 }
 
+joystick.addEventListener(
+  "pointerup",
+  stopJoystick
+);
 
 joystick.addEventListener(
-"pointerup",stop);
+  "pointercancel",
+  stopJoystick
+);
 
 joystick.addEventListener(
-"pointercancel",stop);
+  "lostpointercapture",
+  stopJoystick
+);
 
 
-/* =====================================
+/* =====================================================
    KEYBOARD
-===================================== */
+===================================================== */
 
 const keys={};
 
-addEventListener(
-"keydown",
-e=>{
+window.addEventListener("keydown",e=>{
   keys[e.key.toLowerCase()]=true;
 });
 
-addEventListener(
-"keyup",
-e=>{
+window.addEventListener("keyup",e=>{
   keys[e.key.toLowerCase()]=false;
 });
 
 
-/* =====================================
+/* =====================================================
    COLLISION
-===================================== */
+===================================================== */
+
+function circleRectCollision(cx,cy,r,rect){
+
+  const closestX=
+    Math.max(
+      rect.x,
+      Math.min(cx,rect.x+rect.w)
+    );
+
+  const closestY=
+    Math.max(
+      rect.y,
+      Math.min(cy,rect.y+rect.h)
+    );
+
+  const dx=cx-closestX;
+  const dy=cy-closestY;
+
+  return dx*dx+dy*dy<r*r;
+
+}
+
 
 function blocked(x,y){
 
-  const r=22;
+  for(const w of walls){
 
-  for(const wall of walls){
-
-    if(
-      x+r>wall.x &&
-      x-r<wall.x+wall.w &&
-      y+r>wall.y &&
-      y-r<wall.y+wall.h
-    ){
-
+    if(circleRectCollision(
+      x,
+      y,
+      player.radius,
+      w
+    )){
       return true;
-
     }
 
   }
@@ -405,54 +501,443 @@ function blocked(x,y){
 }
 
 
-/* =====================================
-   PLAYER DRAW
-===================================== */
+/* =====================================================
+   DRAW SPACE FLOOR
+===================================================== */
+
+function drawFloor(){
+
+  ctx.fillStyle="#151b2a";
+
+  ctx.fillRect(
+    0,
+    0,
+    WORLD_W,
+    WORLD_H
+  );
+
+
+  /*
+    subtle floor tiles
+  */
+
+  ctx.strokeStyle="rgba(130,145,180,.07)";
+  ctx.lineWidth=2;
+
+  const size=80;
+
+  for(let x=0;x<WORLD_W;x+=size){
+
+    ctx.beginPath();
+    ctx.moveTo(x,0);
+    ctx.lineTo(x,WORLD_H);
+    ctx.stroke();
+
+  }
+
+  for(let y=0;y<WORLD_H;y+=size){
+
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(WORLD_W,y);
+    ctx.stroke();
+
+  }
+
+}
+
+
+/* =====================================================
+   ROOM FLOOR
+===================================================== */
+
+function drawRooms(){
+
+  for(const r of rooms){
+
+    ctx.fillStyle="#252d43";
+
+    ctx.fillRect(
+      r.x,
+      r.y,
+      r.w,
+      r.h
+    );
+
+
+    ctx.strokeStyle="#3e4967";
+    ctx.lineWidth=7;
+
+    ctx.strokeRect(
+      r.x,
+      r.y,
+      r.w,
+      r.h
+    );
+
+  }
+
+
+  /*
+    central corridor
+  */
+
+  ctx.fillStyle="#1c2437";
+
+  ctx.fillRect(
+    750,
+    865,
+    1630,
+    170
+  );
+
+}
+
+
+/* =====================================================
+   WALL DRAWING
+===================================================== */
+
+function drawWalls(){
+
+  for(const w of walls){
+
+    /*
+      shadow
+    */
+
+    ctx.fillStyle="rgba(0,0,0,.28)";
+
+    ctx.fillRect(
+      w.x+5,
+      w.y+7,
+      w.w,
+      w.h
+    );
+
+
+    /*
+      wall body
+    */
+
+    ctx.fillStyle="#68738e";
+
+    ctx.fillRect(
+      w.x,
+      w.y,
+      w.w,
+      w.h
+    );
+
+
+    /*
+      inner highlight
+    */
+
+    ctx.fillStyle="#7e89a3";
+
+    if(w.w>w.h){
+
+      ctx.fillRect(
+        w.x,
+        w.y,
+        w.w,
+        5
+      );
+
+    }else{
+
+      ctx.fillRect(
+        w.x,
+        w.y,
+        5,
+        w.h
+      );
+
+    }
+
+
+    /*
+      dark edge
+    */
+
+    ctx.strokeStyle="#424b65";
+    ctx.lineWidth=3;
+
+    ctx.strokeRect(
+      w.x,
+      w.y,
+      w.w,
+      w.h
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   DOORS / OPENINGS DECORATION
+===================================================== */
+
+function drawDoors(){
+
+  const doors=[
+
+    [750,370,75,45],
+    [1050,570,90,70],
+    [1830,570,90,70],
+    [2170,365,75,45],
+
+    [820,870,50,65],
+    [2330,870,50,65],
+
+    [760,1430,70,70],
+    [1040,1510,70,70],
+    [1710,1510,70,70],
+    [2070,1430,70,70]
+
+  ];
+
+  for(const d of doors){
+
+    ctx.fillStyle="#151c2e";
+
+    ctx.fillRect(
+      d[0],
+      d[1],
+      d[2],
+      d[3]
+    );
+
+    ctx.strokeStyle="#596681";
+    ctx.lineWidth=3;
+
+    ctx.strokeRect(
+      d[0],
+      d[1],
+      d[2],
+      d[3]
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   ROOM OBJECTS
+===================================================== */
+
+function drawObject(x,y,w,h,type){
+
+  if(type==="console"){
+
+    ctx.fillStyle="#303a56";
+
+    ctx.fillRect(
+      x,
+      y,
+      w,
+      h
+    );
+
+    ctx.fillStyle="#72dff4";
+
+    ctx.fillRect(
+      x+8,
+      y+7,
+      w-16,
+      h*.35
+    );
+
+    ctx.fillStyle="#151c2c";
+
+    ctx.fillRect(
+      x+8,
+      y+h*.55,
+      w-16,
+      5
+    );
+
+  }
+
+
+  if(type==="engine"){
+
+    ctx.fillStyle="#3a435e";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      42,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    ctx.strokeStyle="#697793";
+    ctx.lineWidth=5;
+
+    ctx.stroke();
+
+    ctx.fillStyle="#68e5ff";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      18,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+  }
+
+
+  if(type==="table"){
+
+    ctx.fillStyle="#343d57";
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+      x,
+      y,
+      w,
+      h,
+      0,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    ctx.strokeStyle="#65718d";
+    ctx.lineWidth=5;
+
+    ctx.stroke();
+
+  }
+
+}
+
+
+/* =====================================================
+   MAP OBJECTS
+===================================================== */
+
+function drawObjects(){
+
+  /* left top */
+
+  drawObject(
+    300,310,
+    115,60,
+    "console"
+  );
+
+  drawObject(
+    550,470,
+    90,55,
+    "console"
+  );
+
+
+  /* top */
+
+  drawObject(
+    1270,300,
+    110,65,
+    "console"
+  );
+
+  drawObject(
+    1630,350,
+    42,42,
+    "engine"
+  );
+
+
+  /* right */
+
+  drawObject(
+    2440,300,
+    110,65,
+    "console"
+  );
+
+  drawObject(
+    2760,460,
+    42,42,
+    "engine"
+  );
+
+
+  /* central */
+
+  drawObject(
+    1600,
+    950,
+    150,
+    90,
+    "table"
+  );
+
+
+  /* bottom */
+
+  drawObject(
+    330,1450,
+    110,65,
+    "console"
+  );
+
+  drawObject(
+    1300,1530,
+    110,65,
+    "console"
+  );
+
+  drawObject(
+    2380,1450,
+    110,65,
+    "console"
+  );
+
+}
+
+
+/* =====================================================
+   PLAYER
+===================================================== */
 
 function drawPlayer(){
 
-  const x=
-    player.x-camera.x;
-
-  const y=
-    player.y-camera.y;
+  const x=player.x;
+  const y=player.y;
 
 
   /*
     shadow
   */
 
-  ctx.fillStyle=
-    "rgba(0,0,0,.35)";
+  ctx.fillStyle="rgba(0,0,0,.35)";
 
   ctx.beginPath();
 
   ctx.ellipse(
     x,
-    y+22,
+    y+24,
     25,
-    10,
+    9,
     0,
-    0,
-    Math.PI*2
-  );
-
-  ctx.fill();
-
-
-  /*
-    body
-  */
-
-  ctx.fillStyle=
-    player.color;
-
-  ctx.beginPath();
-
-  ctx.arc(
-    x,
-    y,
-    24,
     0,
     Math.PI*2
   );
@@ -464,35 +949,87 @@ function drawPlayer(){
     backpack
   */
 
-  ctx.fillStyle=
-    "#414967";
+  ctx.fillStyle="#3c4660";
 
   ctx.roundRect(
-    x-28,
+    x-27,
     y-8,
-    10,
-    23,
-    5,
-    5
+    13,
+    30,
+    6,
+    6
   );
 
   ctx.fill();
 
 
   /*
+    body
+  */
+
+  ctx.fillStyle=player.color;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x,
+    y,
+    25,
+    0,
+    Math.PI*2
+  );
+
+  ctx.fill();
+
+
+  /*
+    bottom body
+  */
+
+  ctx.fillStyle=player.color;
+
+  ctx.fillRect(
+    x-25,
+    y,
+    50,
+    16
+  );
+
+
+  /*
     visor
   */
 
-  ctx.fillStyle=
-    "#9beaff";
+  ctx.fillStyle="#a9efff";
 
   ctx.beginPath();
 
   ctx.ellipse(
     x+8,
     y-7,
-    14,
-    9,
+    16,
+    11,
+    -.15,
+    0,
+    Math.PI*2
+  );
+
+  ctx.fill();
+
+
+  /*
+    visor dark side
+  */
+
+  ctx.fillStyle="#66b9d0";
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x+12,
+    y-5,
+    8,
+    7,
     -.15,
     0,
     Math.PI*2
@@ -505,13 +1042,12 @@ function drawPlayer(){
     visor shine
   */
 
-  ctx.fillStyle=
-    "#e5fbff";
+  ctx.fillStyle="white";
 
   ctx.beginPath();
 
   ctx.arc(
-    x+12,
+    x+10,
     y-10,
     3,
     0,
@@ -522,276 +1058,127 @@ function drawPlayer(){
 
 
   /*
-    name
+    feet
   */
 
-  ctx.fillStyle=
-    "white";
-
-  ctx.font=
-    "bold 12px Arial";
-
-  ctx.textAlign=
-    "center";
-
-  ctx.fillText(
-    player.name,
-    x,
-    y-34
-  );
-
-}
-
-
-/* =====================================
-   MAP DRAW
-===================================== */
-
-function drawMap(){
-
-  ctx.fillStyle=
-    "#101626";
-
-  ctx.fillRect(
-    0,
-    0,
-    MAP_W,
-    MAP_H
-  );
-
-
-  /*
-    rooms
-  */
-
-  for(const room of rooms){
-
-    ctx.fillStyle=
-      "#202943";
-
-    ctx.fillRect(
-      room.x,
-      room.y,
-      room.w,
-      room.h
-    );
-
-
-    ctx.strokeStyle=
-      "#3b4668";
-
-    ctx.lineWidth=5;
-
-    ctx.strokeRect(
-      room.x,
-      room.y,
-      room.w,
-      room.h
-    );
-
-  }
-
-
-  /*
-    corridors
-  */
-
-  ctx.fillStyle=
-    "#151d32";
-
-  ctx.fillRect(
-    650,
-    620,
-    1250,
-    150
-  );
-
-  ctx.fillRect(
-    1200,
-    300,
-    150,
-    950
-  );
-
-
-  /*
-    walls
-  */
-
-  for(const wall of walls){
-
-    ctx.fillStyle=
-      "#59627d";
-
-    ctx.fillRect(
-      wall.x,
-      wall.y,
-      wall.w,
-      wall.h
-    );
-
-    ctx.strokeStyle=
-      "#747e9d";
-
-    ctx.lineWidth=3;
-
-    ctx.strokeRect(
-      wall.x,
-      wall.y,
-      wall.w,
-      wall.h
-    );
-
-  }
-
-
-  /*
-    central table
-  */
-
-  ctx.fillStyle=
-    "#343d5a";
+  ctx.fillStyle="#4b5570";
 
   ctx.beginPath();
 
   ctx.ellipse(
-    1300,
-    750,
-    105,
-    65,
+    x-13,
+    y+20,
+    11,
+    7,
     0,
     0,
     Math.PI*2
   );
 
   ctx.fill();
-
-  ctx.strokeStyle=
-    "#697493";
-
-  ctx.lineWidth=4;
-
-  ctx.stroke();
-
-
-  /*
-    small screen on table
-  */
-
-  ctx.fillStyle=
-    "#78e7ff";
-
-  ctx.fillRect(
-    1270,
-    725,
-    60,
-    18
-  );
-
-
-  /*
-    room decorations
-  */
-
-  drawDecoration(
-    300,400,
-    "CAFETERIA"
-  );
-
-  drawDecoration(
-    2070,380,
-    "REACTOR"
-  );
-
-  drawDecoration(
-    300,1050,
-    "ENGINE"
-  );
-
-  drawDecoration(
-    2080,1050,
-    "LAB"
-  );
-
-}
-
-
-function drawDecoration(x,y,text){
-
-  ctx.fillStyle=
-    "#2d3857";
 
   ctx.beginPath();
 
-  ctx.arc(
-    x,
-    y,
-    35,
+  ctx.ellipse(
+    x+13,
+    y+20,
+    11,
+    7,
+    0,
     0,
     Math.PI*2
   );
 
   ctx.fill();
 
-  ctx.fillStyle=
-    "#8d98bb";
+}
 
-  ctx.font=
-    "bold 13px Arial";
 
-  ctx.textAlign=
-    "center";
+/* =====================================================
+   CAMERA UPDATE
+===================================================== */
 
-  ctx.fillText(
-    text,
-    x,
-    y+60
-  );
+function updateCamera(dt){
+
+  const targetX=
+    player.x-vw/2;
+
+  const targetY=
+    player.y-vh/2;
+
+
+  /*
+    Smooth follow.
+    No zoom.
+  */
+
+  const smooth=
+    1-Math.pow(.001,dt);
+
+
+  camera.x +=
+    (targetX-camera.x)*smooth;
+
+  camera.y +=
+    (targetY-camera.y)*smooth;
+
+
+  /*
+    Clamp camera to map
+  */
+
+  const maxX=
+    Math.max(0,WORLD_W-vw);
+
+  const maxY=
+    Math.max(0,WORLD_H-vh);
+
+
+  camera.x=
+    Math.max(
+      0,
+      Math.min(
+        maxX,
+        camera.x
+      )
+    );
+
+  camera.y=
+    Math.max(
+      0,
+      Math.min(
+        maxY,
+        camera.y
+      )
+    );
 
 }
 
 
-/* =====================================
-   CAMERA
-===================================== */
+/* =====================================================
+   UPDATE PLAYER
+===================================================== */
 
-const camera={
-  x:0,
-  y:0
-};
+function updatePlayer(dt){
 
-
-/* =====================================
-   GAME LOOP
-===================================== */
-
-function update(){
-
-  let x=moveX;
-  let y=moveY;
+  let x=joyX;
+  let y=joyY;
 
 
-  if(keys["w"]||
-     keys["arrowup"])
+  if(keys["w"]||keys["arrowup"])
     y=-1;
 
-  if(keys["s"]||
-     keys["arrowdown"])
+  if(keys["s"]||keys["arrowdown"])
     y=1;
 
-  if(keys["a"]||
-     keys["arrowleft"])
+  if(keys["a"]||keys["arrowleft"])
     x=-1;
 
-  if(keys["d"]||
-     keys["arrowright"])
+  if(keys["d"]||keys["arrowright"])
     x=1;
 
 
-  const len=
-    Math.sqrt(
-      x*x+y*y
-    );
+  const len=Math.hypot(x,y);
 
 
   if(len>1){
@@ -802,82 +1189,83 @@ function update(){
   }
 
 
-  const nx=
-    player.x+x*player.speed;
+  if(len>.05){
 
-  const ny=
-    player.y+y*player.speed;
+    player.angle=
+      Math.atan2(y,x);
 
 
-  if(!blocked(nx,player.y))
-    player.x=nx;
+    const amount=
+      player.speed*dt;
 
-  if(!blocked(player.x,ny))
-    player.y=ny;
+    const nx=
+      player.x+x*amount;
 
+    const ny=
+      player.y+y*amount;
+
+
+    /*
+      Separate X/Y collision.
+      This makes sliding around
+      corners much smoother.
+    */
+
+    if(!blocked(nx,player.y))
+      player.x=nx;
+
+    if(!blocked(player.x,ny))
+      player.y=ny;
+
+  }
+
+
+  /*
+    world boundary
+  */
 
   player.x=
     Math.max(
-      30,
+      player.radius,
       Math.min(
-        MAP_W-30,
+        WORLD_W-player.radius,
         player.x
       )
     );
 
   player.y=
     Math.max(
-      30,
+      player.radius,
       Math.min(
-        MAP_H-30,
+        WORLD_H-player.radius,
         player.y
-      )
-    );
-
-
-  /*
-    camera follows player
-  */
-
-  camera.x=
-    player.x-W/2;
-
-  camera.y=
-    player.y-H/2;
-
-
-  camera.x=
-    Math.max(
-      0,
-      Math.min(
-        MAP_W-W,
-        camera.x
-      )
-    );
-
-  camera.y=
-    Math.max(
-      0,
-      Math.min(
-        MAP_H-H,
-        camera.y
       )
     );
 
 }
 
 
+/* =====================================================
+   RENDER
+===================================================== */
+
 function render(){
 
   ctx.clearRect(
     0,
     0,
-    W,
-    H
+    vw,
+    vh
   );
 
 
   ctx.save();
+
+
+  /*
+    Camera translation.
+    Zoom is permanently 1.
+  */
 
   ctx.translate(
     -camera.x,
@@ -885,84 +1273,98 @@ function render(){
   );
 
 
-  drawMap();
+  drawFloor();
+
+  drawRooms();
+
+  drawDoors();
+
+  drawObjects();
+
+  drawWalls();
 
   drawPlayer();
 
 
   ctx.restore();
 
-
-  /*
-    dark vignette
-  */
-
-  const gradient=
-    ctx.createRadialGradient(
-      W/2,
-      H/2,
-      H*.15,
-      W/2,
-      H/2,
-      H*.8
-    );
-
-  gradient.addColorStop(
-    0,
-    "rgba(0,0,0,0)"
-  );
-
-  gradient.addColorStop(
-    1,
-    "rgba(0,0,0,.28)"
-  );
-
-  ctx.fillStyle=
-    gradient;
-
-  ctx.fillRect(
-    0,
-    0,
-    W,
-    H
-  );
-
 }
 
 
-function loop(){
+/* =====================================================
+   GAME LOOP
+===================================================== */
 
-  update();
+let lastTime=
+  performance.now();
+
+
+function loop(now){
+
+  let dt=
+    (now-lastTime)/1000;
+
+  lastTime=now;
+
+
+  /*
+    Prevent huge movement
+    if the browser freezes briefly.
+  */
+
+  dt=Math.min(dt,.033);
+
+
+  updatePlayer(dt);
+
+  updateCamera(dt);
 
   render();
+
 
   requestAnimationFrame(loop);
 
 }
 
-loop();
+requestAnimationFrame(loop);
 
 
-/* =====================================
-   PLAYER NAME FROM URL
-===================================== */
+/* =====================================================
+   PREVENT IPHONE GESTURES
+===================================================== */
 
-const params=
-new URLSearchParams(
-  location.search
+document.addEventListener(
+  "gesturestart",
+  e=>e.preventDefault(),
+  {passive:false}
 );
 
-if(params.get("name")){
+document.addEventListener(
+  "gesturechange",
+  e=>e.preventDefault(),
+  {passive:false}
+);
 
-  player.name=
-    params.get("name");
+document.addEventListener(
+  "gestureend",
+  e=>e.preventDefault(),
+  {passive:false}
+);
 
-  document
-    .getElementById("name")
-    .textContent=
-    player.name;
+document.addEventListener(
+  "touchmove",
+  e=>{
 
-}
+    if(e.target===canvas ||
+       joystick.contains(e.target)){
+
+      e.preventDefault();
+
+    }
+
+  },
+  {passive:false}
+);
 
 </script>
 
