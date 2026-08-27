@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+
+<title>SpaceCrew Game</title>
+
+<style>
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#090d18;
+  touch-action:none;
+  font-family:Arial,sans-serif;
+}
+
+canvas{
+  display:block;
+}
+
+#hud{
+  position:fixed;
+  top:15px;
+  left:15px;
+  z-index:5;
+  color:white;
+  background:#080b16cc;
+  border:1px solid #ffffff22;
+  border-radius:14px;
+  padding:10px 14px;
+  font-weight:bold;
+  pointer-events:none;
+}
+
+#joystick{
+  position:fixed;
+  left:25px;
+  bottom:30px;
+  width:130px;
+  height:130px;
+  border-radius:50%;
+  background:#ffffff16;
+  border:2px solid #ffffff30;
+  z-index:10;
+  touch-action:none;
+}
+
+#stick{
+  position:absolute;
+  left:35px;
+  top:35px;
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  background:#ffffff55;
+  border:2px solid #ffffff70;
+}
+
+#hint{
+  position:fixed;
+  right:15px;
+  bottom:25px;
+  color:#ffffffaa;
+  font-size:13px;
+  z-index:5;
+}
+</style>
+</head>
+
+<body>
+
+<div id="hud">SPACE CREW</div>
+
+<div id="joystick">
+  <div id="stick"></div>
+</div>
+
+<div id="hint">
+  Move with joystick
+</div>
+
+<script type="module">
+
+import * as THREE from
+"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+
+/* =========================
+   SCENE
+========================= */
+
+const scene =
+new THREE.Scene();
+
+scene.background =
+new THREE.Color(0x070b16);
+
+
+/* =========================
+   CAMERA
+========================= */
+
+const camera =
+new THREE.PerspectiveCamera(
+ 55,
+ innerWidth/innerHeight,
+ 0.1,
+ 1000
+);
+
+camera.position.set(
+ 0,
+ 10,
+ 10
+);
+
+
+/* =========================
+   RENDERER
+========================= */
+
+const renderer =
+new THREE.WebGLRenderer({
+ antialias:true
+});
+
+renderer.setSize(
+ innerWidth,
+ innerHeight
+);
+
+renderer.setPixelRatio(
+ Math.min(devicePixelRatio,2)
+);
+
+renderer.shadowMap.enabled=true;
+
+document.body.appendChild(
+ renderer.domElement
+);
+
+
+/* =========================
+   LIGHTS
+========================= */
+
+scene.add(
+ new THREE.HemisphereLight(
+  0xffffff,
+  0x222244,
+  2.5
+ )
+);
+
+const light =
+new THREE.DirectionalLight(
+  0xffffff,
+  3
+);
+
+light.position.set(
+  10,
+  20,
+  10
+);
+
+light.castShadow=true;
+
+scene.add(light);
+
+
+/* =========================
+   FLOOR
+========================= */
+
+const floor =
+new THREE.Mesh(
+ new THREE.PlaneGeometry(
+  100,
+  100
+ ),
+ new THREE.MeshStandardMaterial({
+  color:0x20263a,
+  roughness:.8
+ })
+);
+
+floor.rotation.x =
+-Math.PI/2;
+
+floor.receiveShadow=true;
+
+scene.add(floor);
+
+
+/* =========================
+   GRID
+========================= */
+
+const grid =
+new THREE.GridHelper(
+ 100,
+ 50,
+ 0x4d5570,
+ 0x2b3147
+);
+
+grid.position.y=.01;
+
+scene.add(grid);
+
+
+/* =========================
+   WALL FUNCTION
+========================= */
+
+function wall(
+ x,
+ z,
+ w,
+ d
+){
+
+ const mesh =
+ new THREE.Mesh(
+  new THREE.BoxGeometry(
+   w,
+   2.5,
+   d
+  ),
+  new THREE.MeshStandardMaterial({
+   color:0x59627d,
+   roughness:.7
+  })
+ );
+
+ mesh.position.set(
+  x,
+  1.25,
+  z
+ );
+
+ mesh.castShadow=true;
+ mesh.receiveShadow=true;
+
+ scene.add(mesh);
+
+ return mesh;
+}
+
+
+/* =========================
+   MAP
+========================= */
+
+
+/*
+   MAIN HALL
+*/
+
+wall(
+ 0,
+ -18,
+ 38,
+ 1
+);
+
+wall(
+ -19,
+ 0,
+ 1,
+ 38
+);
+
+wall(
+ 19,
+ 0,
+ 1,
+ 38
+);
+
+wall(
+ 0,
+ 18,
+ 38,
+ 1
+);
+
+
+/*
+   CENTRAL ROOMS
+*/
+
+wall(
+ -9,
+ -5,
+ 1,
+ 15
+);
+
+wall(
+ 9,
+ -5,
+ 1,
+ 15
+);
+
+
+/*
+   TOP ROOMS
+*/
+
+wall(
+ -9,
+ 9,
+ 1,
+ 10
+);
+
+wall(
+ 9,
+ 9,
+ 1,
+ 10
+);
+
+
+/*
+   SMALL ROOM
+*/
+
+wall(
+ -14,
+ 5,
+ 8,
+ 1
+);
+
+wall(
+ -14,
+ 12,
+ 8,
+ 1
+);
+
+
+/*
+   TABLE
+*/
+
+const table =
+new THREE.Mesh(
+ new THREE.CylinderGeometry(
+  2,
+  2,
+  .5,
+  32
+ ),
+ new THREE.MeshStandardMaterial({
+  color:0x343b55
+ })
+);
+
+table.position.set(
+ 0,
+ .25,
+ 0
+);
+
+table.castShadow=true;
+
+scene.add(table);
+
+
+/* =========================
+   PLAYER
+========================= */
+
+const player =
+new THREE.Group();
+
+
+/*
+   BODY
+*/
+
+const body =
+new THREE.Mesh(
+ new THREE.CapsuleGeometry(
+  .65,
+  1.1,
+  6,
+  12
+ ),
+ new THREE.MeshStandardMaterial({
+  color:0x5865f2,
+  roughness:.6
+ })
+);
+
+body.position.y=1;
+
+body.castShadow=true;
+
+player.add(body);
+
+
+/*
+   VISOR
+*/
+
+const visor =
+new THREE.Mesh(
+ new THREE.SphereGeometry(
+  .42,
+  20,
+  12
+ ),
+ new THREE.MeshStandardMaterial({
+  color:0x8ee7ff,
+  metalness:.3,
+  roughness:.2
+ })
+);
+
+visor.scale.set(
+ 1,
+ .65,
+ .45
+);
+
+visor.position.set(
+ 0,
+ 1.35,
+ .48
+);
+
+visor.castShadow=true;
+
+player.add(visor);
+
+
+/*
+   BACKPACK
+*/
+
+const backpack =
+new THREE.Mesh(
+ new THREE.BoxGeometry(
+  .65,
+  .85,
+  .35
+ ),
+ new THREE.MeshStandardMaterial({
+  color:0x414967
+ })
+);
+
+backpack.position.set(
+ 0,
+ .9,
+ -.5
+);
+
+backpack.castShadow=true;
+
+player.add(backpack);
+
+
+player.position.set(
+ 0,
+ 0,
+ 12
+);
+
+scene.add(player);
+
+
+/* =========================
+   MOVEMENT
+========================= */
+
+let moveX=0;
+let moveZ=0;
+
+const speed=.10;
+
+
+/* =========================
+   JOYSTICK
+========================= */
+
+const joystick =
+document.getElementById(
+ "joystick"
+);
+
+const stick =
+document.getElementById(
+ "stick"
+);
+
+let active=false;
+let pointerId=null;
+
+function updateJoystick(
+ clientX,
+ clientY
+){
+
+ const rect =
+ joystick.getBoundingClientRect();
+
+ const centerX =
+ rect.left+
+ rect.width/2;
+
+ const centerY =
+ rect.top+
+ rect.height/2;
+
+ let dx =
+ clientX-centerX;
+
+ let dy =
+ clientY-centerY;
+
+ const max =
+ 38;
+
+ const length =
+ Math.sqrt(
+  dx*dx+
+  dy*dy
+ );
+
+ if(length>max){
+
+   dx =
+   dx/length*max;
+
+   dy =
+   dy/length*max;
+
+ }
+
+ stick.style.transform =
+ `translate(${dx}px,${dy}px)`;
+
+ moveX =
+ dx/max;
+
+ moveZ =
+ dy/max;
+
+}
+
+
+joystick.addEventListener(
+ "pointerdown",
+ e=>{
+
+   active=true;
+
+   pointerId=e.pointerId;
+
+   joystick.setPointerCapture(
+     pointerId
+   );
+
+   updateJoystick(
+     e.clientX,
+     e.clientY
+   );
+
+ }
+);
+
+
+joystick.addEventListener(
+ "pointermove",
+ e=>{
+
+   if(!active) return;
+
+   updateJoystick(
+     e.clientX,
+     e.clientY
+   );
+
+ }
+);
+
+
+function stopJoystick(){
+
+ active=false;
+
+ moveX=0;
+ moveZ=0;
+
+ stick.style.transform =
+ "translate(0,0)";
+
+}
+
+
+joystick.addEventListener(
+ "pointerup",
+ stopJoystick
+);
+
+joystick.addEventListener(
+ "pointercancel",
+ stopJoystick
+);
+
+
+/* =========================
+   KEYBOARD
+========================= */
+
+const keys={};
+
+window.addEventListener(
+ "keydown",
+ e=>{
+   keys[e.key.toLowerCase()]=true;
+ }
+);
+
+window.addEventListener(
+ "keyup",
+ e=>{
+   keys[e.key.toLowerCase()]=false;
+ }
+);
+
+
+/* =========================
+   ANIMATION
+========================= */
+
+const clock =
+new THREE.Clock();
+
+
+function animate(){
+
+ requestAnimationFrame(
+  animate
+ );
+
+
+ let x=moveX;
+ let z=moveZ;
+
+
+ if(keys["w"])
+   z=-1;
+
+ if(keys["s"])
+   z=1;
+
+ if(keys["a"])
+   x=-1;
+
+ if(keys["d"])
+   x=1;
+
+
+ const length =
+ Math.sqrt(
+  x*x+z*z
+ );
+
+
+ if(length>1){
+
+   x/=length;
+   z/=length;
+
+ }
+
+
+ player.position.x +=
+ x*speed;
+
+ player.position.z +=
+ z*speed;
+
+
+ /*
+    KEEP PLAYER INSIDE MAP
+ */
+
+ player.position.x =
+ THREE.MathUtils.clamp(
+  player.position.x,
+  -17,
+  17
+ );
+
+ player.position.z =
+ THREE.MathUtils.clamp(
+  player.position.z,
+  -16,
+  16
+ );
+
+
+ /*
+    FACE MOVEMENT
+ */
+
+ if(length>.05){
+
+   player.rotation.y =
+   Math.atan2(
+    x,
+    z
+   );
+
+ }
+
+
+ /*
+    CAMERA FOLLOW
+ */
+
+ const target =
+ new THREE.Vector3(
+  player.position.x,
+  0,
+  player.position.z
+ );
+
+
+ const desired =
+ new THREE.Vector3(
+  player.position.x,
+  11,
+  player.position.z+10
+ );
+
+
+ camera.position.lerp(
+  desired,
+  .08
+ );
+
+ camera.lookAt(
+  target.x,
+  0,
+  target.z
+ );
+
+
+ renderer.render(
+  scene,
+  camera
+ );
+
+}
+
+animate();
+
+
+/* =========================
+   RESIZE
+========================= */
+
+window.addEventListener(
+ "resize",
+ ()=>{
+
+   camera.aspect =
+   innerWidth/innerHeight;
+
+   camera.updateProjectionMatrix();
+
+   renderer.setSize(
+    innerWidth,
+    innerHeight
+   );
+
+ }
+);
+
+</script>
+
+</body>
+</html>
