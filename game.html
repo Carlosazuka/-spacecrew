@@ -2,11 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"
->
+<meta name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 
 <title>SpaceCrew</title>
 
@@ -22,7 +19,7 @@ html,body{
   width:100%;
   height:100%;
   overflow:hidden;
-  background:#0b1020;
+  background:#10152a;
   touch-action:none;
   font-family:Arial,sans-serif;
 }
@@ -38,106 +35,84 @@ canvas{
   width:100%;
   height:100%;
   display:block;
-  touch-action:none;
+  image-rendering:auto;
 }
 
 #hud{
   position:fixed;
   top:12px;
   left:12px;
-  z-index:20;
-
-  padding:10px 14px;
-
-  border-radius:14px;
-
-  background:#11182bd9;
-  border:1px solid #ffffff18;
-
+  z-index:10;
+  padding:9px 13px;
+  border-radius:12px;
+  background:rgba(10,15,30,.78);
+  border:1px solid rgba(255,255,255,.14);
   color:white;
-  font-size:14px;
   font-weight:800;
-
+  font-size:14px;
   pointer-events:none;
 }
 
-#room{
-  color:#9da8d4;
-  margin-left:8px;
+#playersHud{
+  position:fixed;
+  top:55px;
+  left:12px;
+  z-index:10;
+  padding:7px 11px;
+  border-radius:10px;
+  background:rgba(10,15,30,.65);
+  color:#cbd2ed;
+  font-size:12px;
+  pointer-events:none;
 }
 
 #joystick{
   position:fixed;
-  left:24px;
+  left:22px;
   bottom:24px;
-
   width:132px;
   height:132px;
-
+  z-index:20;
   border-radius:50%;
-
-  background:#ffffff12;
-  border:2px solid #ffffff25;
-
-  z-index:30;
-
+  background:rgba(255,255,255,.075);
+  border:2px solid rgba(255,255,255,.18);
+  box-shadow:0 5px 25px rgba(0,0,0,.3);
   touch-action:none;
 }
 
 #stick{
   position:absolute;
-
   width:58px;
   height:58px;
-
   left:35px;
   top:35px;
-
   border-radius:50%;
-
-  background:#ffffff55;
-  border:2px solid #ffffff70;
-
+  background:rgba(255,255,255,.28);
+  border:2px solid rgba(255,255,255,.45);
+  box-shadow:0 4px 15px rgba(0,0,0,.25);
   pointer-events:none;
 }
 
 #hint{
   position:fixed;
-  right:16px;
-  bottom:18px;
-
-  color:#ffffff66;
+  right:14px;
+  bottom:20px;
+  z-index:10;
+  color:rgba(255,255,255,.5);
   font-size:12px;
-
-  z-index:20;
   pointer-events:none;
 }
 
-#rotate{
+#connection{
   position:fixed;
-  right:16px;
-  top:16px;
-
-  padding:9px 12px;
-
-  border-radius:12px;
-
-  background:#11182bd9;
-  border:1px solid #ffffff18;
-
-  color:#fff;
-  font-size:12px;
-  font-weight:bold;
-
-  z-index:25;
-
-  display:none;
-}
-
-@media (orientation:portrait){
-  #rotate{
-    display:block;
-  }
+  right:12px;
+  top:12px;
+  z-index:10;
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  background:#e34b5f;
+  box-shadow:0 0 10px #e34b5f;
 }
 </style>
 </head>
@@ -146,33 +121,25 @@ canvas{
 
 <canvas id="game"></canvas>
 
-<div id="hud">
-  SPACE<span style="color:#6875ff">CREW</span>
-  <span id="room"></span>
-</div>
-
-<div id="rotate">
-  ↔ Turn your phone horizontally
-</div>
+<div id="hud">SPACE CREW</div>
+<div id="playersHud">Players: 1</div>
+<div id="connection"></div>
 
 <div id="joystick">
   <div id="stick"></div>
 </div>
 
-<div id="hint">
-  Move
-</div>
+<div id="hint">MOVE</div>
 
 <script type="module">
 
-import {
-  createClient
-} from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { createClient }
+from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 
-/* =====================================================
+/* =========================================================
    SUPABASE
-===================================================== */
+========================================================= */
 
 const SUPABASE_URL =
 "https://egackwuidatyuihmdhvo.supabase.co";
@@ -187,31 +154,23 @@ createClient(
 );
 
 
-/* =====================================================
-   URL
-===================================================== */
+/* =========================================================
+   URL / PLAYER
+========================================================= */
 
 const params =
-new URLSearchParams(
-  location.search
-);
+new URLSearchParams(location.search);
 
 const roomId =
 params.get("room");
 
-const myPlayerId =
+const myId =
 params.get("player");
 
 
-document.getElementById("room").textContent =
-roomId
-  ? "ROOM"
-  : "OFFLINE";
-
-
-/* =====================================================
+/* =========================================================
    CANVAS
-===================================================== */
+========================================================= */
 
 const canvas =
 document.getElementById("game");
@@ -219,488 +178,416 @@ document.getElementById("game");
 const ctx =
 canvas.getContext("2d");
 
-
 let W=innerWidth;
 let H=innerHeight;
-let DPR=1;
-
 
 function resize(){
 
   W=innerWidth;
   H=innerHeight;
 
-  DPR=Math.min(
-    devicePixelRatio || 1,
-    2
-  );
-
   canvas.width =
-    Math.floor(W*DPR);
+    Math.floor(W*devicePixelRatio);
 
   canvas.height =
-    Math.floor(H*DPR);
+    Math.floor(H*devicePixelRatio);
 
-  canvas.style.width =
-    W+"px";
-
-  canvas.style.height =
-    H+"px";
+  canvas.style.width=W+"px";
+  canvas.style.height=H+"px";
 
   ctx.setTransform(
-    DPR,
+    devicePixelRatio,
     0,
     0,
-    DPR,
+    devicePixelRatio,
     0,
     0
   );
 }
 
-
 resize();
 
-window.addEventListener(
-  "resize",
-  resize
-);
+addEventListener("resize",resize);
 
 
-/* =====================================================
-   WORLD
-===================================================== */
-
-const WORLD_W=2400;
-const WORLD_H=1500;
-
-const world={
-  width:WORLD_W,
-  height:WORLD_H
-};
-
-
-/* =====================================================
+/* =========================================================
    COLORS
-===================================================== */
+========================================================= */
 
 const COLORS=[
-  "#e64b4b",
-  "#4d8cff",
-  "#42c88a",
-  "#e7c84b",
-  "#a66cff",
-  "#f28b4b",
-  "#48cfe8",
-  "#ff77ad",
-  "#b8c2cc",
-  "#75d44b"
+  "#e94b5f",
+  "#4f8cff",
+  "#53c878",
+  "#c86cff",
+  "#ff9d3d",
+  "#45d6d0",
+  "#f2d34f",
+  "#d8d8e8",
+  "#8d6bff",
+  "#ff65b5",
+  "#67d35b",
+  "#8a9aa8",
+  "#e7e7e7",
+  "#9b5de5",
+  "#ff7043"
 ];
 
 
-/* =====================================================
-   LOCAL PLAYER
-===================================================== */
+/* =========================================================
+   WORLD
+========================================================= */
 
-const me={
-  id:myPlayerId || "local",
-
-  name:"You",
-
-  x:1200,
-  y:1050,
-
-  color:COLORS[1],
-
-  moving:false,
-
-  direction:1,
-
-  walk:0
+const world={
+  width:3200,
+  height:2200
 };
 
 
-/* =====================================================
-   OTHER PLAYERS
-===================================================== */
-
-const players=new Map();
-
-
-/* =====================================================
-   MAP OBJECTS
-===================================================== */
+/* =========================================================
+   ROOMS
+========================================================= */
 
 const rooms=[
   {
-    x:120,
-    y:120,
-    w:620,
-    h:430,
+    x:100,y:100,w:720,h:520,
+    floor:"#c8d0b9",
+    wall:"#66705f",
     name:"CAFETERIA"
   },
-
   {
-    x:880,
-    y:120,
-    w:620,
-    h:430,
-    name:"ENGINE ROOM"
+    x:940,y:100,w:650,h:520,
+    floor:"#bfc9d0",
+    wall:"#65717a",
+    name:"MEDBAY"
   },
-
   {
-    x:1640,
-    y:120,
-    w:620,
-    h:430,
-    name:"SECURITY"
-  },
-
-  {
-    x:120,
-    y:850,
-    w:620,
-    h:430,
-    name:"MEDICAL"
-  },
-
-  {
-    x:880,
-    y:850,
-    w:620,
-    h:430,
+    x:1710,y:100,w:560,h:520,
+    floor:"#c7c0ae",
+    wall:"#756d5d",
     name:"STORAGE"
   },
-
   {
-    x:1640,
-    y:850,
-    w:620,
-    h:430,
+    x:100,y:850,w:650,h:500,
+    floor:"#c7cbd0",
+    wall:"#646c75",
+    name:"ENGINE"
+  },
+  {
+    x:890,y:850,w:650,h:500,
+    floor:"#c9bcae",
+    wall:"#716355",
+    name:"SECURITY"
+  },
+  {
+    x:1680,y:850,w:590,h:500,
+    floor:"#b9c8b7",
+    wall:"#5e715d",
     name:"LAB"
+  },
+  {
+    x:100,y:1580,w:700,h:430,
+    floor:"#c4bcae",
+    wall:"#706456",
+    name:"LOWER DECK"
+  },
+  {
+    x:950,y:1580,w:620,h:430,
+    floor:"#bfc7ce",
+    wall:"#626d77",
+    name:"REACTOR"
+  },
+  {
+    x:1720,y:1580,w:550,h:430,
+    floor:"#c5b8c9",
+    wall:"#6c5d72",
+    name:"COMMS"
   }
 ];
 
+
+/* =========================================================
+   DECOR
+========================================================= */
+
+const decor=[];
+
+function addDecor(type,x,y,w,h,color){
+
+  decor.push({
+    type,x,y,w,h,color
+  });
+}
+
+
+/* CAFETERIA TABLES */
+
+addDecor("table",460,350,250,150,"#5b6170");
+addDecor("table",460,350,210,110,"#7d8494");
+
+addDecor("table",245,180,110,70,"#5b6170");
+addDecor("table",675,180,110,70,"#5b6170");
+
+addDecor("seat",330,350,55,35,"#8a91a0");
+addDecor("seat",535,350,55,35,"#8a91a0");
+addDecor("seat",460,255,55,35,"#8a91a0");
+addDecor("seat",460,445,55,35,"#8a91a0");
+
+
+/* MEDBAY */
+
+addDecor("bed",1080,250,180,85,"#e8e8e8");
+addDecor("bed",1080,470,180,85,"#e8e8e8");
+
+addDecor("monitor",1330,250,90,55,"#37465b");
+addDecor("monitor",1330,470,90,55,"#37465b");
+
+addDecor("scanner",1430,360,70,150,"#5b6472");
+
+
+/* STORAGE */
+
+addDecor("box",1830,230,120,90,"#a87845");
+addDecor("box",2020,230,120,90,"#b5834b");
+addDecor("box",2210,230,120,90,"#9b7044");
+
+addDecor("box",1830,480,120,90,"#b5834b");
+addDecor("box",2020,480,120,90,"#a87845");
+addDecor("box",2210,480,120,90,"#a87845");
+
+
+/* ENGINE */
+
+addDecor("engine",250,1040,180,220,"#596574");
+addDecor("engine",530,1040,180,220,"#596574");
+addDecor("pipe",390,930,300,45,"#59616d");
+
+
+/* SECURITY */
+
+addDecor("screen",1040,970,130,80,"#293c59");
+addDecor("screen",1210,970,130,80,"#293c59");
+addDecor("screen",1380,970,100,80,"#293c59");
+
+addDecor("desk",1030,1160,400,90,"#6c5748");
+
+
+/* LAB */
+
+addDecor("tube",1810,980,70,180,"#50cfe2");
+addDecor("tube",1930,980,70,180,"#7e6cff");
+addDecor("tube",2050,980,70,180,"#5ad86b");
+addDecor("table",2180,1130,100,180,"#6d7480");
+
+
+/* LOWER */
+
+addDecor("crate",220,1710,150,110,"#8d6946");
+addDecor("crate",420,1710,150,110,"#9e7448");
+addDecor("crate",620,1710,150,110,"#886342");
+
+addDecor("console",330,1900,130,70,"#35455e");
+addDecor("console",610,1900,130,70,"#35455e");
+
+
+/* REACTOR */
+
+addDecor("reactor",1160,1800,220,220,"#687381");
+addDecor("reactorCore",1160,1800,115,115,"#4dd9ee");
+
+
+/* COMMS */
+
+addDecor("antenna",1930,1740,100,210,"#6b7180");
+addDecor("console",2140,1740,150,80,"#374963");
+addDecor("console",2140,1900,150,80,"#374963");
+
+
+/* =========================================================
+   WALLS / COLLISION
+========================================================= */
 
 const walls=[];
 
+function wall(x,y,w,h){
 
-/* =====================================================
-   WALLS
-===================================================== */
-
-function addWall(
-  x,
-  y,
-  w,
-  h
-){
-
-  walls.push({
-    x,
-    y,
-    w,
-    h
-  });
-
+  walls.push({x,y,w,h});
 }
 
 
-/* outer */
+/* Outer walls */
 
-addWall(
-  60,
-  60,
-  2280,
-  32
-);
-
-addWall(
-  60,
-  1408,
-  2280,
-  32
-);
-
-addWall(
-  60,
-  60,
-  32,
-  1380
-);
-
-addWall(
-  2308,
-  60,
-  32,
-  1380
-);
+wall(40,40,2400,35);
+wall(40,2040,2400,35);
+wall(40,40,35,2040);
+wall(2405,40,35,2040);
 
 
-/* room walls */
+/* room dividers */
 
-rooms.forEach(
-  r=>{
+wall(820,100,45,500);
+wall(1590,100,45,500);
 
-    addWall(
-      r.x,
-      r.y,
-      r.w,
-      20
-    );
+wall(800,850,45,500);
+wall(1560,850,45,500);
 
-    addWall(
-      r.x,
-      r.y+r.h-20,
-      r.w,
-      20
-    );
-
-    addWall(
-      r.x,
-      r.y,
-      20,
-      r.h
-    );
-
-    addWall(
-      r.x+r.w-20,
-      r.y,
-      20,
-      r.h
-    );
-
-  }
-);
+wall(820,1580,45,430);
+wall(1590,1580,45,430);
 
 
-/* doors */
+/* horizontal connectors */
 
-const doors=[
-  {x:395,y:540,w:90,h:35},
-  {x:1140,y:540,w:90,h:35},
-  {x:1900,y:540,w:90,h:35},
+wall(100,650,720,35);
+wall(940,650,650,35);
+wall(1710,650,560,35);
 
-  {x:395,y:825,w:90,h:35},
-  {x:1140,y:825,w:90,h:35},
-  {x:1900,y:825,w:90,h:35}
-];
+wall(100,1400,650,35);
+wall(890,1400,650,35);
+wall(1680,1400,590,35);
 
 
-/* =====================================================
-   TASK / DECORATIONS
-===================================================== */
+/* =========================================================
+   PLAYER
+========================================================= */
 
-const decorations=[
-  {x:300,y:270,type:"table"},
-  {x:500,y:390,type:"table"},
-
-  {x:1050,y:280,type:"engine"},
-  {x:1300,y:350,type:"engine"},
-
-  {x:1810,y:290,type:"screen"},
-  {x:2100,y:380,type:"screen"},
-
-  {x:300,y:1010,type:"bed"},
-  {x:520,y:1120,type:"bed"},
-
-  {x:1050,y:1010,type:"crate"},
-  {x:1300,y:1120,type:"crate"},
-
-  {x:1810,y:1020,type:"machine"},
-  {x:2100,y:1120,type:"machine"}
-];
+const me={
+  id:myId || "local",
+  name:"You",
+  x:460,
+  y:540,
+  color:COLORS[0],
+  vx:0,
+  vy:0,
+  moving:false,
+  walk:0,
+  lastSent:0
+};
 
 
-/* =====================================================
+const players=new Map();
+
+players.set(me.id,me);
+
+
+/* =========================================================
+   FIND FREE SPAWN
+========================================================= */
+
+function spawnPosition(index){
+
+  const positions=[
+    [460,530],
+    [390,530],
+    [530,530],
+    [460,460],
+    [390,460],
+    [530,460],
+    [460,600],
+    [390,600],
+    [530,600],
+    [320,530],
+    [600,530],
+    [320,460],
+    [600,460],
+    [320,600],
+    [600,600]
+  ];
+
+  return positions[index%positions.length];
+}
+
+
+/* =========================================================
    COLLISION
-===================================================== */
+========================================================= */
 
 function circleRectCollision(
-  cx,
-  cy,
-  r,
-  rect
+  x,y,r,rect
 ){
 
-  const nearestX =
+  const cx =
     Math.max(
       rect.x,
-      Math.min(
-        cx,
-        rect.x+rect.w
-      )
+      Math.min(x,rect.x+rect.w)
     );
 
-  const nearestY =
+  const cy =
     Math.max(
       rect.y,
-      Math.min(
-        cy,
-        rect.y+rect.h
-      )
+      Math.min(y,rect.y+rect.h)
     );
 
-  const dx =
-    cx-nearestX;
+  const dx=x-cx;
+  const dy=y-cy;
 
-  const dy =
-    cy-nearestY;
-
-  return (
-    dx*dx+
-    dy*dy
-  ) < r*r;
+  return dx*dx+dy*dy < r*r;
 }
 
 
-function canMove(
-  x,
-  y
-){
+function blocked(x,y){
 
-  const radius=24;
+  const r=25;
 
-  if(
-    x<90 ||
-    y<90 ||
-    x>2310 ||
-    y>1410
-  ){
-
-    return false;
-  }
-
-
-  for(
-    const wall of walls
-  ){
+  for(const w of walls){
 
     if(
       circleRectCollision(
-        x,
-        y,
-        radius,
-        wall
+        x,y,r,w
       )
     ){
-
-      let nearDoor=false;
-
-      for(
-        const d of doors
-      ){
-
-        const expanded={
-          x:d.x-20,
-          y:d.y-20,
-          w:d.w+40,
-          h:d.h+40
-        };
-
-        if(
-          circleRectCollision(
-            x,
-            y,
-            radius,
-            expanded
-          )
-        ){
-
-          nearDoor=true;
-
-          break;
-        }
-
-      }
-
-      if(!nearDoor)
-        return false;
-
+      return true;
     }
 
   }
 
-  return true;
+  return false;
 }
 
 
-/* =====================================================
+/* =========================================================
    JOYSTICK
-===================================================== */
+========================================================= */
 
 const joystick =
-document.getElementById(
-  "joystick"
-);
+document.getElementById("joystick");
 
 const stick =
-document.getElementById(
-  "stick"
-);
+document.getElementById("stick");
 
 let joyX=0;
 let joyY=0;
-let pointer=null;
+let active=false;
 
-
-function updateJoystick(
-  x,
-  y
-){
+function updateJoystick(x,y){
 
   const rect =
     joystick.getBoundingClientRect();
 
   const cx =
-    rect.left+
-    rect.width/2;
+    rect.left+rect.width/2;
 
   const cy =
-    rect.top+
-    rect.height/2;
+    rect.top+rect.height/2;
 
   let dx=x-cx;
   let dy=y-cy;
 
   const max=38;
 
-  const len=
-    Math.hypot(
-      dx,
-      dy
-    );
+  const len =
+    Math.hypot(dx,dy);
 
   if(len>max){
 
-    dx=
-      dx/len*max;
-
-    dy=
-      dy/len*max;
+    dx=dx/len*max;
+    dy=dy/len*max;
 
   }
 
-  joyX=
-    dx/max;
-
-  joyY=
-    dy/max;
-
-  stick.style.transform=
+  stick.style.transform =
     `translate(${dx}px,${dy}px)`;
 
-}
-
-
-function stopJoystick(){
-
-  pointer=null;
-
-  joyX=0;
-  joyY=0;
-
-  stick.style.transform=
-    "translate(0,0)";
+  joyX=dx/max;
+  joyY=dy/max;
 }
 
 
@@ -708,10 +595,10 @@ joystick.addEventListener(
   "pointerdown",
   e=>{
 
-    pointer=e.pointerId;
+    active=true;
 
     joystick.setPointerCapture(
-      pointer
+      e.pointerId
     );
 
     updateJoystick(
@@ -727,10 +614,7 @@ joystick.addEventListener(
   "pointermove",
   e=>{
 
-    if(
-      pointer!==e.pointerId
-    )
-      return;
+    if(!active)return;
 
     updateJoystick(
       e.clientX,
@@ -741,726 +625,59 @@ joystick.addEventListener(
 );
 
 
+function stopJoy(){
+
+  active=false;
+
+  joyX=0;
+  joyY=0;
+
+  stick.style.transform=
+    "translate(0,0)";
+}
+
+
 joystick.addEventListener(
   "pointerup",
-  stopJoystick
+  stopJoy
 );
 
 joystick.addEventListener(
   "pointercancel",
-  stopJoystick
+  stopJoy
 );
 
 
-/* =====================================================
+/* =========================================================
    KEYBOARD
-===================================================== */
+========================================================= */
 
 const keys={};
-
 
 addEventListener(
   "keydown",
   e=>{
-    keys[
-      e.key.toLowerCase()
-    ]=true;
+    keys[e.key.toLowerCase()]=true;
   }
 );
-
 
 addEventListener(
   "keyup",
   e=>{
-    keys[
-      e.key.toLowerCase()
-    ]=false;
+    keys[e.key.toLowerCase()]=false;
   }
 );
 
 
-/* =====================================================
-   DRAW MAP
-===================================================== */
-
-function drawFloor(){
-
-  ctx.fillStyle="#171d2d";
-
-  ctx.fillRect(
-    0,
-    0,
-    WORLD_W,
-    WORLD_H
-  );
-
-
-  /* floor tiles */
-
-  ctx.strokeStyle="#20283c";
-  ctx.lineWidth=2;
-
-  for(
-    let x=90;
-    x<WORLD_W;
-    x+=80
-  ){
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      x,
-      90
-    );
-
-    ctx.lineTo(
-      x,
-      WORLD_H-90
-    );
-
-    ctx.stroke();
-
-  }
-
-
-  for(
-    let y=90;
-    y<WORLD_H;
-    y+=80
-  ){
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      90,
-      y
-    );
-
-    ctx.lineTo(
-      WORLD_W-90,
-      y
-    );
-
-    ctx.stroke();
-
-  }
-
-
-  /* rooms */
-
-  rooms.forEach(
-    r=>{
-
-      ctx.fillStyle="#252d43";
-
-      ctx.fillRect(
-        r.x+20,
-        r.y+20,
-        r.w-40,
-        r.h-40
-      );
-
-
-      ctx.fillStyle="#ffffff10";
-
-      ctx.fillRect(
-        r.x+30,
-        r.y+30,
-        r.w-60,
-        42
-      );
-
-
-      ctx.fillStyle="#ffffff45";
-
-      ctx.font=
-        "bold 14px Arial";
-
-      ctx.textAlign="center";
-
-      ctx.fillText(
-        r.name,
-        r.x+r.w/2,
-        r.y+57
-      );
-
-    }
-  );
-
-
-  /* central corridors */
-
-  ctx.fillStyle="#20273a";
-
-  ctx.fillRect(
-    740,
-    550,
-    140,
-    300
-  );
-
-  ctx.fillRect(
-    1500,
-    550,
-    140,
-    300
-  );
-
-  ctx.fillRect(
-    740,
-    670,
-    900,
-    160
-  );
-
-
-  /* walls */
-
-  walls.forEach(
-    w=>{
-
-      ctx.fillStyle="#39435e";
-
-      ctx.fillRect(
-        w.x,
-        w.y,
-        w.w,
-        w.h
-      );
-
-
-      ctx.fillStyle="#525e7b";
-
-      ctx.fillRect(
-        w.x,
-        w.y,
-        w.w,
-        5
-      );
-
-    }
-  );
-
-
-  /* doors */
-
-  doors.forEach(
-    d=>{
-
-      ctx.fillStyle="#64d8ff";
-
-      ctx.fillRect(
-        d.x,
-        d.y,
-        d.w,
-        d.h
-      );
-
-      ctx.fillStyle="#ffffff55";
-
-      ctx.fillRect(
-        d.x+10,
-        d.y+7,
-        d.w-20,
-        5
-      );
-
-    }
-  );
-
-}
-
-
-/* =====================================================
-   DECORATIONS
-===================================================== */
-
-function drawDecoration(
-  d
-){
-
-  ctx.save();
-
-  ctx.translate(
-    d.x,
-    d.y
-  );
-
-
-  if(d.type==="table"){
-
-    ctx.fillStyle="#424d69";
-
-    ctx.beginPath();
-
-    ctx.arc(
-      0,
-      0,
-      48,
-      0,
-      Math.PI*2
-    );
-
-    ctx.fill();
-
-
-    ctx.fillStyle="#596681";
-
-    ctx.beginPath();
-
-    ctx.arc(
-      0,
-      0,
-      36,
-      0,
-      Math.PI*2
-    );
-
-    ctx.fill();
-
-
-    ctx.fillStyle="#273047";
-
-    ctx.beginPath();
-
-    ctx.arc(
-      0,
-      0,
-      13,
-      0,
-      Math.PI*2
-    );
-
-    ctx.fill();
-
-  }
-
-
-  if(d.type==="engine"){
-
-    ctx.fillStyle="#46516d";
-
-    ctx.fillRect(
-      -45,
-      -30,
-      90,
-      60
-    );
-
-    ctx.fillStyle="#5d6b8d";
-
-    ctx.fillRect(
-      -30,
-      -18,
-      60,
-      36
-    );
-
-    ctx.fillStyle="#53d5ff";
-
-    ctx.fillRect(
-      -8,
-      -10,
-      16,
-      20
-    );
-
-  }
-
-
-  if(d.type==="screen"){
-
-    ctx.fillStyle="#303b57";
-
-    ctx.fillRect(
-      -48,
-      -32,
-      96,
-      64
-    );
-
-    ctx.fillStyle="#5ce4ff";
-
-    ctx.fillRect(
-      -36,
-      -22,
-      72,
-      35
-    );
-
-  }
-
-
-  if(d.type==="bed"){
-
-    ctx.fillStyle="#59647e";
-
-    ctx.fillRoundRect(
-      -60,
-      -28,
-      120,
-      56,
-      12
-    );
-
-    ctx.fillStyle="#7e8aa4";
-
-    ctx.fillRect(
-      -50,
-      -20,
-      42,
-      40
-    );
-
-  }
-
-
-  if(d.type==="crate"){
-
-    ctx.fillStyle="#765d3d";
-
-    ctx.fillRect(
-      -35,
-      -35,
-      70,
-      70
-    );
-
-    ctx.strokeStyle="#aa8959";
-
-    ctx.lineWidth=6;
-
-    ctx.strokeRect(
-      -28,
-      -28,
-      56,
-      56
-    );
-
-  }
-
-
-  if(d.type==="machine"){
-
-    ctx.fillStyle="#404b67";
-
-    ctx.fillRect(
-      -50,
-      -38,
-      100,
-      76
-    );
-
-    ctx.fillStyle="#65e0ff";
-
-    ctx.fillRect(
-      -30,
-      -18,
-      60,
-      25
-    );
-
-  }
-
-
-  ctx.restore();
-
-}
-
-
-/* =====================================================
-   DRAW PLAYER
-===================================================== */
-
-function drawPlayer(
-  p,
-  isMe=false
-){
-
-  const bob =
-    p.moving
-      ? Math.sin(p.walk)*2
-      : 0;
-
-
-  ctx.save();
-
-  ctx.translate(
-    p.x,
-    p.y+bob
-  );
-
-
-  /* shadow */
-
-  ctx.fillStyle="#00000055";
-
-  ctx.beginPath();
-
-  ctx.ellipse(
-    0,
-    24,
-    24,
-    10,
-    0,
-    0,
-    Math.PI*2
-  );
-
-  ctx.fill();
-
-
-  /* legs */
-
-  const step =
-    p.moving
-      ? Math.sin(p.walk)*6
-      : 0;
-
-
-  ctx.fillStyle =
-    shadeColor(
-      p.color,
-      -25
-    );
-
-
-  ctx.fillRoundRect(
-    -17+step,
-    13,
-    13,
-    22,
-    6
-  );
-
-
-  ctx.fillRoundRect(
-    4-step,
-    13,
-    13,
-    22,
-    6
-  );
-
-
-  /* backpack */
-
-  ctx.fillStyle =
-    shadeColor(
-      p.color,
-      -40
-    );
-
-  ctx.fillRoundRect(
-    -29,
-    -18,
-    15,
-    38,
-    6
-  );
-
-
-  /* body */
-
-  ctx.fillStyle=p.color;
-
-  ctx.beginPath();
-
-  ctx.roundRect(
-    -25,
-    -30,
-    50,
-    58,
-    18
-  );
-
-  ctx.fill();
-
-
-  /* visor */
-
-  ctx.fillStyle="#9be9ff";
-
-  ctx.beginPath();
-
-  ctx.ellipse(
-    7,
-    -10,
-    21,
-    14,
-    0,
-    0,
-    Math.PI*2
-  );
-
-  ctx.fill();
-
-
-  ctx.fillStyle="#d8f8ff";
-
-  ctx.beginPath();
-
-  ctx.ellipse(
-    12,
-    -14,
-    10,
-    5,
-    -.2,
-    0,
-    Math.PI*2
-  );
-
-  ctx.fill();
-
-
-  /* name */
-
-  if(!isMe){
-
-    ctx.font=
-      "bold 13px Arial";
-
-    ctx.textAlign=
-      "center";
-
-    ctx.fillStyle="#ffffffdd";
-
-    ctx.fillText(
-      p.name || "Crewmate",
-      0,
-      -48
-    );
-
-  }
-
-
-  ctx.restore();
-
-}
-
-
-/* =====================================================
-   COLOR HELPERS
-===================================================== */
-
-function shadeColor(
-  color,
-  amount
-){
-
-  let c=
-    color.replace(
-      "#",
-      ""
-    );
-
-  let num=
-    parseInt(
-      c,
-      16
-    );
-
-  let r=
-    (num>>16)+amount;
-
-  let g=
-    ((num>>8)&255)+amount;
-
-  let b=
-    (num&255)+amount;
-
-  r=Math.max(
-    0,
-    Math.min(255,r)
-  );
-
-  g=Math.max(
-    0,
-    Math.min(255,g)
-  );
-
-  b=Math.max(
-    0,
-    Math.min(255,b)
-  );
-
-  return "#"+
-    ((r<<16)|
-     (g<<8)|
-     b)
-    .toString(16)
-    .padStart(6,"0");
-
-}
-
-
-/* =====================================================
-   CAMERA
-===================================================== */
-
-const camera={
-  x:me.x,
-  y:me.y
-};
-
-
-function updateCamera(){
-
-  camera.x +=
-    (me.x-camera.x)*.12;
-
-  camera.y +=
-    (me.y-camera.y)*.12;
-
-}
-
-
-/* =====================================================
-   NETWORK POSITION
-===================================================== */
-
-let lastSend=0;
-
-
-async function sendPosition(){
-
-  if(!roomId || !myPlayerId)
-    return;
-
-
-  const now=Date.now();
-
-  if(now-lastSend<80)
-    return;
-
-  lastSend=now;
-
-
-  await supabase
-    .from("players")
-    .update({
-
-      x:me.x,
-      y:me.y
-
-    })
-    .eq(
-      "id",
-      myPlayerId
-    );
-
-}
-
-
-/* =====================================================
-   LOAD PLAYERS
-===================================================== */
+/* =========================================================
+   NETWORK
+========================================================= */
+
+let channel=null;
 
 async function loadPlayers(){
 
-  if(!roomId)
-    return;
-
+  if(!roomId)return;
 
   const result =
     await supabase
@@ -1471,115 +688,58 @@ async function loadPlayers(){
       roomId
     );
 
-
   if(result.error){
 
-    console.error(
-      result.error
-    );
-
+    console.log(result.error);
     return;
   }
 
+  const list=result.data || [];
 
-  (result.data || [])
-  .forEach(
-    p=>{
+  list.forEach(
+    (p,i)=>{
 
-      if(p.id===myPlayerId){
+      if(p.id===me.id)return;
 
-        me.name=
-          p.name || "You";
+      if(!players.has(p.id)){
 
-        if(
-          p.x!==null &&
-          p.x!==undefined
-        )
-          me.x=p.x;
+        const pos =
+          spawnPosition(i+1);
 
-        if(
-          p.y!==null &&
-          p.y!==undefined
-        )
-          me.y=p.y;
-
-        return;
+        players.set(
+          p.id,
+          {
+            id:p.id,
+            name:p.name,
+            x:pos[0],
+            y:pos[1],
+            targetX:pos[0],
+            targetY:pos[1],
+            color:COLORS[
+              (i+1)%COLORS.length
+            ],
+            moving:false,
+            walk:0,
+            direction:0
+          }
+        );
 
       }
-
-
-      players.set(
-        p.id,
-        {
-
-          id:p.id,
-
-          name:
-            p.name || "Crewmate",
-
-          x:
-            p.x ?? 1200,
-
-          y:
-            p.y ?? 750,
-
-          color:
-            COLORS[
-              Math.abs(
-                hashCode(p.id)
-              )%COLORS.length
-            ],
-
-          moving:false,
-
-          direction:1,
-
-          walk:0
-
-        }
-      );
 
     }
   );
 
-}
-
-
-function hashCode(str){
-
-  let h=0;
-
-  for(
-    let i=0;
-    i<str.length;
-    i++
-  ){
-
-    h=
-      ((h<<5)-h)+
-      str.charCodeAt(i);
-
-    h|=0;
-
-  }
-
-  return h;
+  document.getElementById(
+    "playersHud"
+  ).textContent =
+    "Players: "+players.size;
 
 }
 
 
-/* =====================================================
-   REALTIME
-===================================================== */
+function setupRealtime(){
 
-let channel=null;
-
-
-function connectRealtime(){
-
-  if(!roomId)
-    return;
-
+  if(!roomId)return;
 
   channel =
     supabase
@@ -1588,125 +748,1038 @@ function connectRealtime(){
     )
 
     .on(
-      "postgres_changes",
-
+      "broadcast",
       {
-        event:"*",
-        schema:"public",
-        table:"players",
-        filter:
-          "room_id=eq."+roomId
+        event:"move"
       },
-
       payload=>{
 
-        const p =
-          payload.new;
+        const p=payload.payload;
 
+        if(!p || p.id===me.id)return;
 
-        if(
-          payload.eventType==="DELETE"
-        ){
-
-          players.delete(
-            payload.old.id
-          );
-
-          return;
-        }
-
-
-        if(!p || p.id===myPlayerId)
-          return;
-
-
-        let existing=
+        let other =
           players.get(p.id);
 
+        if(!other){
 
-        if(!existing){
-
-          existing={
-
+          other={
             id:p.id,
-
-            name:p.name ||
-              "Crewmate",
-
-            x:p.x ?? 1200,
-
-            y:p.y ?? 750,
-
-            color:
-              COLORS[
-                Math.abs(
-                  hashCode(p.id)
-                )%COLORS.length
-              ],
-
-            moving:false,
-
-            direction:1,
-
-            walk:0
-
+            name:p.name || "Crewmate",
+            x:p.x,
+            y:p.y,
+            targetX:p.x,
+            targetY:p.y,
+            color:p.color || COLORS[1],
+            moving:p.moving,
+            walk:0,
+            direction:p.direction || 0
           };
 
           players.set(
             p.id,
-            existing
+            other
           );
 
         }
 
+        other.name =
+          p.name || other.name;
 
-        const oldX=existing.x;
-        const oldY=existing.y;
-
-
-        existing.x=
-          p.x ?? existing.x;
-
-        existing.y=
-          p.y ?? existing.y;
-
-        existing.name=
-          p.name || existing.name;
-
-
-        if(
-          Math.abs(
-            existing.x-oldX
-          )>.5 ||
-          Math.abs(
-            existing.y-oldY
-          )>.5
-        ){
-
-          existing.moving=true;
-
-          existing.walk+=.8;
-
-        }else{
-
-          existing.moving=false;
-
-        }
+        other.targetX=p.x;
+        other.targetY=p.y;
+        other.moving=!!p.moving;
+        other.direction=p.direction || 0;
 
       }
     )
 
-    .subscribe();
+    .subscribe(
+      status=>{
+
+        const dot =
+          document.getElementById(
+            "connection"
+          );
+
+        if(
+          status==="SUBSCRIBED"
+        ){
+
+          dot.style.background=
+            "#48d17b";
+
+          dot.style.boxShadow=
+            "0 0 10px #48d17b";
+
+        }
+
+      }
+    );
 
 }
 
 
-/* =====================================================
+async function sendPosition(){
+
+  if(!channel)return;
+
+  await channel.send({
+
+    type:"broadcast",
+
+    event:"move",
+
+    payload:{
+      id:me.id,
+      name:me.name,
+      x:me.x,
+      y:me.y,
+      moving:me.moving,
+      direction:me.direction,
+      color:me.color
+    }
+
+  });
+
+}
+
+
+/* =========================================================
+   GET MY NAME
+========================================================= */
+
+async function loadMyName(){
+
+  if(!myId)return;
+
+  const result =
+    await supabase
+    .from("players")
+    .select("name")
+    .eq(
+      "id",
+      myId
+    )
+    .maybeSingle();
+
+  if(
+    result.data &&
+    result.data.name
+  ){
+
+    me.name =
+      result.data.name;
+
+  }
+
+}
+
+
+/* =========================================================
+   CAMERA
+========================================================= */
+
+const camera={
+  x:0,
+  y:0
+};
+
+
+/* =========================================================
+   DRAW HELPERS
+========================================================= */
+
+function roundRect(
+  x,y,w,h,r
+){
+
+  ctx.beginPath();
+
+  ctx.roundRect(
+    x,y,w,h,r
+  );
+
+  ctx.fill();
+
+}
+
+
+function drawShadow(
+  x,y,w,h
+){
+
+  ctx.fillStyle=
+    "rgba(0,0,0,.22)";
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    x,
+    y,
+    w,
+    h,
+    0,
+    0,
+    Math.PI*2
+  );
+
+  ctx.fill();
+}
+
+
+/* =========================================================
+   DRAW WORLD
+========================================================= */
+
+function drawWorld(){
+
+  ctx.fillStyle="#777b88";
+
+  ctx.fillRect(
+    0,
+    0,
+    W,
+    H
+  );
+
+
+  /* floor */
+
+  ctx.save();
+
+  ctx.translate(
+    -camera.x,
+    -camera.y
+  );
+
+  ctx.fillStyle="#596170";
+
+  ctx.fillRect(
+    0,
+    0,
+    world.width,
+    world.height
+  );
+
+
+  /* rooms */
+
+  rooms.forEach(
+    room=>{
+
+      /* outer shadow */
+
+      ctx.fillStyle=
+        "rgba(0,0,0,.18)";
+
+      roundRect(
+        room.x+8,
+        room.y+10,
+        room.w,
+        room.h,
+        18
+      );
+
+      /* wall */
+
+      ctx.fillStyle=
+        room.wall;
+
+      roundRect(
+        room.x,
+        room.y,
+        room.w,
+        room.h,
+        18
+      );
+
+      /* floor */
+
+      ctx.fillStyle=
+        room.floor;
+
+      roundRect(
+        room.x+18,
+        room.y+18,
+        room.w-36,
+        room.h-36,
+        12
+      );
+
+      /* floor tiles */
+
+      ctx.globalAlpha=.12;
+
+      ctx.strokeStyle="#5c6470";
+      ctx.lineWidth=2;
+
+      for(
+        let x=room.x+25;
+        x<room.x+room.w-20;
+        x+=70
+      ){
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+          x,
+          room.y+20
+        );
+
+        ctx.lineTo(
+          x,
+          room.y+room.h-20
+        );
+
+        ctx.stroke();
+
+      }
+
+      for(
+        let y=room.y+25;
+        y<room.y+room.h-20;
+        y+=70
+      ){
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+          room.x+20,
+          y
+        );
+
+        ctx.lineTo(
+          room.x+room.w-20,
+          y
+        );
+
+        ctx.stroke();
+
+      }
+
+      ctx.globalAlpha=1;
+
+
+      /* room label */
+
+      ctx.fillStyle=
+        "rgba(40,45,55,.28)";
+
+      ctx.font=
+        "900 22px Arial";
+
+      ctx.textAlign="center";
+
+      ctx.fillText(
+        room.name,
+        room.x+room.w/2,
+        room.y+48
+      );
+
+    }
+  );
+
+
+  /* connectors */
+
+  ctx.fillStyle="#9298a5";
+
+  ctx.fillRect(
+    820,
+    300,
+    125,
+    100
+  );
+
+  ctx.fillRect(
+    1585,
+    300,
+    145,
+    100
+  );
+
+  ctx.fillRect(
+    800,
+    1050,
+    110,
+    100
+  );
+
+  ctx.fillRect(
+    1555,
+    1050,
+    145,
+    100
+  );
+
+  ctx.fillRect(
+    820,
+    1740,
+    130,
+    100
+  );
+
+  ctx.fillRect(
+    1585,
+    1740,
+    140,
+    100
+  );
+
+
+  /* decor */
+
+  decor.forEach(
+    d=>drawDecor(d)
+  );
+
+
+  /* walls */
+
+  walls.forEach(
+    w=>{
+
+      ctx.fillStyle=
+        "#59606d";
+
+      roundRect(
+        w.x,
+        w.y,
+        w.w,
+        w.h,
+        8
+      );
+
+      ctx.fillStyle=
+        "rgba(255,255,255,.10)";
+
+      ctx.fillRect(
+        w.x+3,
+        w.y+3,
+        w.w-6,
+        Math.min(5,w.h-6)
+      );
+
+    }
+  );
+
+
+  ctx.restore();
+
+}
+
+
+function drawDecor(d){
+
+  const x=d.x;
+  const y=d.y;
+
+  if(d.type==="table"){
+
+    drawShadow(
+      x,
+      y+45,
+      d.w*.48,
+      d.h*.25
+    );
+
+    ctx.fillStyle=d.color;
+
+    roundRect(
+      x-d.w/2,
+      y-d.h/2,
+      d.w,
+      d.h,
+      22
+    );
+
+    ctx.fillStyle=
+      "rgba(255,255,255,.12)";
+
+    roundRect(
+      x-d.w/2+10,
+      y-d.h/2+8,
+      d.w-20,
+      12,
+      6
+    );
+
+    return;
+  }
+
+
+  if(
+    d.type==="seat"
+  ){
+
+    ctx.fillStyle=d.color;
+
+    roundRect(
+      x-d.w/2,
+      y-d.h/2,
+      d.w,
+      d.h,
+      10
+    );
+
+    return;
+  }
+
+
+  if(
+    d.type==="bed"
+  ){
+
+    drawShadow(
+      x,
+      y+45,
+      d.w*.4,
+      12
+    );
+
+    ctx.fillStyle=
+      "#e6e8ec";
+
+    roundRect(
+      x-d.w/2,
+      y-d.h/2,
+      d.w,
+      d.h,
+      12
+    );
+
+    ctx.fillStyle=
+      "#78a4c8";
+
+    roundRect(
+      x-d.w/2+8,
+      y-d.h/2+8,
+      48,
+      d.h-16,
+      9
+    );
+
+    return;
+  }
+
+
+  if(
+    d.type==="monitor" ||
+    d.type==="screen" ||
+    d.type==="console"
+  ){
+
+    ctx.fillStyle="#343d4f";
+
+    roundRect(
+      x-d.w/2,
+      y-d.h/2,
+      d.w,
+      d.h,
+      10
+    );
+
+    ctx.fillStyle="#54cfe7";
+
+    roundRect(
+      x-d.w/2+9,
+      y-d.h/2+9,
+      d.w-18,
+      d.h-20,
+      6
+    );
+
+    ctx.fillStyle=
+      "rgba(255,255,255,.4)";
+
+    ctx.fillRect(
+      x-d.w/2+17,
+      y-d.h/2+17,
+      d.w*.45,
+      5
+    );
+
+    return;
+  }
+
+
+  if(
+    d.type==="box" ||
+    d.type==="crate"
+  ){
+
+    ctx.fillStyle=
+      "rgba(0,0,0,.15)";
+
+    ctx.fillRect(
+      x-d.w/2+7,
+      y-d.h/2+8,
+      d.w,
+      d.h
+    );
+
+    ctx.fillStyle=d.color;
+
+    roundRect(
+      x-d.w/2,
+      y-d.h/2,
+      d.w,
+      d.h,
+      7
+    );
+
+    ctx.strokeStyle=
+      "rgba(60,35,15,.35)";
+
+    ctx.lineWidth=7;
+
+    ctx.strokeRect(
+      x-d.w/2+5,
+      y-d.h/2+5,
+      d.w-10,
+      d.h-10
+    );
+
+    return;
+  }
+
+
+  if(
+    d.type==="engine"
+  ){
+
+    drawShadow(
+      x,
+      y+110,
+      75,
+      18
+    );
+
+    ctx.fillStyle=
+      "#515b6a";
+
+    roundRect(
+      x-d.w/2,
+      y-d.h/2,
+      d.w,
+      d.h,
+      28
+    );
+
+    ctx.fillStyle=
+      "#303847";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      65,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    ctx.fillStyle=
+      "#49c9dc";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      35,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    return;
+  }
+
+
+  if(
+    d.type==="pipe"
+  ){
+
+    ctx.strokeStyle=
+      "#6f7885";
+
+    ctx.lineWidth=24;
+
+    ctx.lineCap="round";
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x-d.w/2,
+      y
+    );
+
+    ctx.lineTo(
+      x+d.w/2,
+      y
+    );
+
+    ctx.stroke();
+
+    return;
+  }
+
+
+  if(
+    d.type==="tube"
+  ){
+
+    ctx.fillStyle=
+      "#303846";
+
+    roundRect(
+      x-d.w/2,
+      y-d.h/2,
+      d.w,
+      d.h,
+      15
+    );
+
+    ctx.fillStyle=d.color;
+
+    roundRect(
+      x-d.w/2+9,
+      y-d.h/2+15,
+      d.w-18,
+      d.h-30,
+      10
+    );
+
+    return;
+  }
+
+
+  if(
+    d.type==="reactor"
+  ){
+
+    ctx.fillStyle=
+      "#555f6d";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      d.w/2,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    ctx.strokeStyle=
+      "#858d98";
+
+    ctx.lineWidth=15;
+
+    ctx.stroke();
+
+    ctx.fillStyle=
+      "#283541";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      72,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    return;
+  }
+
+
+  if(
+    d.type==="reactorCore"
+  ){
+
+    ctx.fillStyle=
+      d.color;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      d.w/2,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    ctx.globalAlpha=.3;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y,
+      d.w/1.35,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    ctx.globalAlpha=1;
+
+    return;
+  }
+
+
+  if(
+    d.type==="antenna"
+  ){
+
+    ctx.strokeStyle=
+      "#656d7b";
+
+    ctx.lineWidth=18;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x,
+      y+90
+    );
+
+    ctx.lineTo(
+      x,
+      y-70
+    );
+
+    ctx.stroke();
+
+    ctx.fillStyle=
+      "#68717f";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      x,
+      y-75,
+      45,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+  }
+
+}
+
+
+/* =========================================================
+   DRAW PLAYER
+========================================================= */
+
+function drawPlayer(p){
+
+  const sx =
+    p.x-camera.x;
+
+  const sy =
+    p.y-camera.y;
+
+
+  if(
+    sx<-100 ||
+    sx>W+100 ||
+    sy<-120 ||
+    sy>H+120
+  )return;
+
+
+  const moving =
+    p===me
+      ? me.moving
+      : p.moving;
+
+
+  const walk =
+    p.walk || 0;
+
+
+  /* shadow */
+
+  drawShadow(
+    sx,
+    sy+24,
+    28,
+    11
+  );
+
+
+  /* feet animation */
+
+  const step =
+    moving
+      ? Math.sin(walk)*7
+      : 0;
+
+
+  ctx.save();
+
+  ctx.translate(
+    sx,
+    sy
+  );
+
+
+  /* legs */
+
+  ctx.fillStyle=
+    darken(p.color,.72);
+
+  roundRect(
+    -18+step,
+    15,
+    15,
+    22,
+    7
+  );
+
+  roundRect(
+    3-step,
+    15,
+    15,
+    22,
+    7
+  );
+
+
+  /* backpack */
+
+  ctx.fillStyle=
+    darken(p.color,.72);
+
+  roundRect(
+    -30,
+    -22,
+    17,
+    48,
+    8
+  );
+
+
+  /* body */
+
+  ctx.fillStyle=
+    p.color;
+
+  roundRect(
+    -27,
+    -28,
+    54,
+    62,
+    21
+  );
+
+
+  /* highlight */
+
+  ctx.fillStyle=
+    "rgba(255,255,255,.16)";
+
+  roundRect(
+    -20,
+    -20,
+    10,
+    38,
+    5
+  );
+
+
+  /* visor */
+
+  ctx.fillStyle=
+    "#b8efff";
+
+  roundRect(
+    -6,
+    -20,
+    34,
+    25,
+    12
+  );
+
+  ctx.fillStyle=
+    "rgba(255,255,255,.48)";
+
+  roundRect(
+    0,
+    -17,
+    13,
+    7,
+    4
+  );
+
+
+  /* name */
+
+  ctx.font=
+    "bold 13px Arial";
+
+  ctx.textAlign=
+    "center";
+
+  ctx.fillStyle=
+    "rgba(255,255,255,.95)";
+
+  ctx.fillText(
+    p.name || "Crewmate",
+    0,
+    -48
+  );
+
+
+  ctx.restore();
+
+}
+
+
+function darken(hex,factor){
+
+  const n =
+    parseInt(
+      hex.replace("#",""),
+      16
+    );
+
+  let r=(n>>16)&255;
+  let g=(n>>8)&255;
+  let b=n&255;
+
+  r=Math.floor(r*factor);
+  g=Math.floor(g*factor);
+  b=Math.floor(b*factor);
+
+  return `rgb(${r},${g},${b})`;
+}
+
+
+/* =========================================================
    MOVEMENT
-===================================================== */
+========================================================= */
 
-const SPEED=3.6;
-
+const speed=3.4;
 
 function updateMovement(){
 
@@ -1728,10 +1801,7 @@ function updateMovement(){
 
 
   const len=
-    Math.hypot(
-      x,
-      y
-    );
+    Math.hypot(x,y);
 
 
   if(len>1){
@@ -1742,56 +1812,198 @@ function updateMovement(){
   }
 
 
-  me.moving=
+  me.vx=x;
+  me.vy=y;
+
+  me.moving =
     Math.abs(x)>.05 ||
     Math.abs(y)>.05;
 
 
   if(me.moving){
 
-    me.walk+=.25;
+    me.walk += .25;
+
+    me.direction =
+      Math.atan2(
+        x,
+        y
+      );
 
 
-    if(Math.abs(x)>.05){
+    const nx =
+      me.x+x*speed;
 
-      me.direction=
-        x>0
-          ? 1
-          : -1;
-
-    }
+    const ny =
+      me.y+y*speed;
 
 
-    const nx=
-      me.x+x*SPEED;
-
-    const ny=
-      me.y+y*SPEED;
-
-
-    if(
-      canMove(
-        nx,
-        me.y
-      )
-    ){
-
+    if(!blocked(nx,me.y))
       me.x=nx;
 
-    }
-
-
-    if(
-      canMove(
-        me.x,
-        ny
-      )
-    ){
-
+    if(!blocked(me.x,ny))
       me.y=ny;
 
-    }
+  }else{
 
+    me.walk=0;
+
+  }
+
+
+  /* map bounds */
+
+  me.x =
+    Math.max(
+      90,
+      Math.min(
+        2390,
+        me.x
+      )
+    );
+
+  me.y =
+    Math.max(
+      90,
+      Math.min(
+        2030,
+        me.y
+      )
+    );
+
+}
+
+
+/* =========================================================
+   CAMERA UPDATE
+========================================================= */
+
+function updateCamera(){
+
+  /*
+    Top-down mobile camera.
+    Player stays around lower-middle
+    like the classic mobile style.
+  */
+
+  const targetX =
+    me.x - W/2;
+
+  const targetY =
+    me.y - H*.56;
+
+
+  camera.x +=
+    (targetX-camera.x)*.12;
+
+  camera.y +=
+    (targetY-camera.y)*.12;
+
+
+  camera.x =
+    Math.max(
+      0,
+      Math.min(
+        world.width-W,
+        camera.x
+      )
+    );
+
+
+  camera.y =
+    Math.max(
+      0,
+      Math.min(
+        world.height-H,
+        camera.y
+      )
+    );
+
+}
+
+
+/* =========================================================
+   GAME LOOP
+========================================================= */
+
+let last=performance.now();
+
+function loop(now){
+
+  requestAnimationFrame(loop);
+
+  const dt =
+    Math.min(
+      32,
+      now-last
+    );
+
+  last=now;
+
+
+  updateMovement();
+
+  updateCamera();
+
+
+  /* interpolate remote players */
+
+  players.forEach(
+    p=>{
+
+      if(p===me)return;
+
+      if(
+        p.targetX!==undefined
+      ){
+
+        p.x +=
+          (p.targetX-p.x)*.25;
+
+        p.y +=
+          (p.targetY-p.y)*.25;
+
+      }
+
+      if(p.moving){
+
+        p.walk += .2;
+
+      }else{
+
+        p.walk=0;
+
+      }
+
+    }
+  );
+
+
+  drawWorld();
+
+
+  /* sort players by y */
+
+  const sorted =
+    [...players.values()]
+    .sort(
+      (a,b)=>a.y-b.y
+    );
+
+
+  sorted.forEach(
+    drawPlayer
+  );
+
+
+  /* send movement */
+
+  if(
+    me.moving &&
+    now-me.lastSent>70
+  ){
+
+    me.lastSent=now;
 
     sendPosition();
 
@@ -1800,254 +2012,70 @@ function updateMovement(){
 }
 
 
-/* =====================================================
-   DRAW
-===================================================== */
-
-function draw(){
-
-  ctx.clearRect(
-    0,
-    0,
-    W,
-    H
-  );
+requestAnimationFrame(loop);
 
 
-  updateCamera();
+/* =========================================================
+   START
+========================================================= */
+
+await loadMyName();
+
+await loadPlayers();
+
+setupRealtime();
 
 
-  /*
-    Zoom is fixed.
-    No pinch zoom.
-    No browser zoom.
-  */
+/* initial position */
 
-  const ZOOM=
-    Math.min(
-      W/850,
-      H/520
-    );
+if(myId){
 
-  const scale=
-    Math.max(
-      .62,
-      Math.min(
-        1,
-        ZOOM
-      )
-    );
+  const index =
+    [...players.keys()]
+    .indexOf(myId);
 
+  if(index>=0){
 
-  ctx.save();
+    const pos =
+      spawnPosition(index);
 
-
-  ctx.translate(
-    W/2,
-    H/2
-  );
-
-
-  ctx.scale(
-    scale,
-    scale
-  );
-
-
-  ctx.translate(
-    -camera.x,
-    -camera.y
-  );
-
-
-  drawFloor();
-
-
-  decorations.forEach(
-    drawDecoration
-  );
-
-
-  /*
-    other players
-  */
-
-  players.forEach(
-    p=>{
-      drawPlayer(
-        p,
-        false
-      );
-    }
-  );
-
-
-  /*
-    local player
-  */
-
-  drawPlayer(
-    me,
-    true
-  );
-
-
-  ctx.restore();
-
-}
-
-
-/* =====================================================
-   GAME LOOP
-===================================================== */
-
-function loop(){
-
-  updateMovement();
-
-  draw();
-
-  requestAnimationFrame(
-    loop
-  );
-
-}
-
-
-loop();
-
-
-/* =====================================================
-   STARTUP
-===================================================== */
-
-async function startup(){
-
-  if(!roomId){
-
-    me.name="Player";
-
-    return;
+    me.x=pos[0];
+    me.y=pos[1];
 
   }
 
-
-  await loadPlayers();
-
-  connectRealtime();
-
 }
 
 
-startup();
+/* =========================================================
+   PREVENT ZOOM / GESTURES
+========================================================= */
 
+document.addEventListener(
+  "gesturestart",
+  e=>e.preventDefault()
+);
 
-/* =====================================================
-   PREVENT PAGE ZOOM / SCROLL
-===================================================== */
+document.addEventListener(
+  "gesturechange",
+  e=>e.preventDefault()
+);
+
+document.addEventListener(
+  "gestureend",
+  e=>e.preventDefault()
+);
 
 document.addEventListener(
   "touchmove",
   e=>{
-    e.preventDefault();
+
+    if(e.target===canvas)
+      e.preventDefault();
+
   },
-  {
-    passive:false
-  }
+  {passive:false}
 );
-
-
-document.addEventListener(
-  "gesturestart",
-  e=>{
-    e.preventDefault();
-  }
-);
-
-
-document.addEventListener(
-  "gesturechange",
-  e=>{
-    e.preventDefault();
-  }
-);
-
-
-document.addEventListener(
-  "gestureend",
-  e=>{
-    e.preventDefault();
-  }
-);
-
-
-/* =====================================================
-   CANVAS ROUND RECT POLYFILL
-===================================================== */
-
-if(!CanvasRenderingContext2D.prototype.fillRoundRect){
-
-  CanvasRenderingContext2D.prototype.fillRoundRect=
-  function(
-    x,
-    y,
-    w,
-    h,
-    r
-  ){
-
-    r=Math.min(
-      r,
-      w/2,
-      h/2
-    );
-
-    this.beginPath();
-
-    this.moveTo(
-      x+r,
-      y
-    );
-
-    this.arcTo(
-      x+w,
-      y,
-      x+w,
-      y+h,
-      r
-    );
-
-    this.arcTo(
-      x+w,
-      y+h,
-      x,
-      y+h,
-      r
-    );
-
-    this.arcTo(
-      x,
-      y+h,
-      x,
-      y,
-      r
-    );
-
-    this.arcTo(
-      x,
-      y,
-      x+w,
-      y,
-      r
-    );
-
-    this.closePath();
-
-    this.fill();
-
-  };
-
-}
 
 </script>
 
