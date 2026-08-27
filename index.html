@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 
 <title>SpaceCrew</title>
 
@@ -92,6 +91,7 @@ button{
   color:white;
   font-size:17px;
   font-weight:800;
+  cursor:pointer;
 }
 
 button:active{
@@ -279,9 +279,9 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 
-/* ======================================
+/* =================================
    SUPABASE
-====================================== */
+================================= */
 
 const SUPABASE_URL =
 "https://egackwuidatyuihmdhvo.supabase.co";
@@ -296,9 +296,9 @@ createClient(
 );
 
 
-/* ======================================
+/* =================================
    STATE
-====================================== */
+================================= */
 
 let roomId = null;
 let playerId = null;
@@ -306,9 +306,9 @@ let host = false;
 let channel = null;
 
 
-/* ======================================
+/* =================================
    ELEMENTS
-====================================== */
+================================= */
 
 const home =
 document.getElementById("home");
@@ -353,26 +353,27 @@ const lobbyStatus =
 document.getElementById("lobbyStatus");
 
 
-/* ======================================
-   INVITE
-====================================== */
+/* =================================
+   INVITE ROOM
+================================= */
 
 const params =
 new URLSearchParams(
-  location.search
+  window.location.search
 );
 
 const invitedRoom =
 params.get("room");
 
 
-/* ======================================
+/* =================================
    MESSAGE
-====================================== */
+================================= */
 
-function message(text,error=false){
+function showMessage(text,error=false){
 
-  homeStatus.textContent=text;
+  homeStatus.textContent =
+    text;
 
   homeStatus.className =
     error
@@ -381,9 +382,9 @@ function message(text,error=false){
 }
 
 
-/* ======================================
-   OPEN LOBBY
-====================================== */
+/* =================================
+   SHOW LOBBY
+================================= */
 
 function openLobby(){
 
@@ -391,64 +392,98 @@ function openLobby(){
 
   lobby.classList.remove("hidden");
 
+
   const link =
-    location.origin +
-    location.pathname +
+    window.location.origin +
+    window.location.pathname +
     "?room=" +
     encodeURIComponent(roomId);
 
-  invite.textContent=link;
+
+  invite.textContent =
+    link;
 
 }
 
 
-/* ======================================
+/* =================================
    CREATE GAME
-====================================== */
+================================= */
 
 async function createGame(){
 
   const name =
     nameInput.value.trim();
 
+
   if(!name){
 
-    message(
+    showMessage(
       "Enter your name first.",
       true
     );
 
+    nameInput.focus();
+
     return;
   }
 
+
   createBtn.disabled=true;
 
-  message("Creating game...");
+  showMessage(
+    "Creating game..."
+  );
+
 
   try{
 
     /*
-      Create room.
+      IMPORTANT:
+      Your rooms table still requires
+      the "code" column.
+      
+      So we create an internal
+      random code here.
+      
+      Players never need to type it.
     */
 
-    const room =
+    const code =
+      Math.random()
+      .toString(36)
+      .substring(2,8)
+      .toUpperCase();
+
+
+    /* CREATE ROOM */
+
+    const roomResult =
       await supabase
       .from("rooms")
       .insert({
+
+        code:code,
+
         max_players:15,
+
         status:"waiting"
+
       })
       .select()
       .single();
 
 
-    if(room.error){
+    if(roomResult.error){
 
-      console.error(room.error);
+      console.error(
+        "ROOM ERROR:",
+        roomResult.error
+      );
 
-      message(
-        "ROOM: " +
-        room.error.message,
+      showMessage(
+        "ROOM ERROR: " +
+        roomResult.error.message,
         true
       );
 
@@ -459,39 +494,48 @@ async function createGame(){
 
 
     roomId =
-      room.data.id;
+      roomResult.data.id;
 
 
-    /*
-      Create host player.
-    */
+    /* CREATE HOST PLAYER */
 
-    const player =
+    const playerResult =
       await supabase
       .from("players")
       .insert({
+
         room_id:roomId,
+
         name:name,
+
         ready:false,
+
         is_alive:true,
+
         is_impostor:false
+
       })
       .select()
       .single();
 
 
-    if(player.error){
+    if(playerResult.error){
 
-      console.error(player.error);
+      console.error(
+        "PLAYER ERROR:",
+        playerResult.error
+      );
+
 
       await supabase
       .from("rooms")
       .delete()
       .eq("id",roomId);
 
-      message(
-        "PLAYER: " +
-        player.error.message,
+
+      showMessage(
+        "PLAYER ERROR: " +
+        playerResult.error.message,
         true
       );
 
@@ -502,33 +546,37 @@ async function createGame(){
 
 
     playerId =
-      player.data.id;
+      playerResult.data.id;
 
     host=true;
 
 
-    /*
-      Save host ID.
-    */
+    /* SAVE HOST */
 
-    const hostUpdate =
+    const hostResult =
       await supabase
       .from("rooms")
       .update({
+
         host_id:playerId
+
       })
-      .eq("id",roomId);
-
-
-    if(hostUpdate.error){
-
-      console.error(
-        hostUpdate.error
+      .eq(
+        "id",
+        roomId
       );
 
-      message(
-        "HOST: " +
-        hostUpdate.error.message,
+
+    if(hostResult.error){
+
+      console.error(
+        "HOST ERROR:",
+        hostResult.error
+      );
+
+      showMessage(
+        "HOST ERROR: " +
+        hostResult.error.message,
         true
       );
 
@@ -538,22 +586,29 @@ async function createGame(){
     }
 
 
+    /* OPEN LOBBY */
+
     openLobby();
+
 
     startBtn.classList.remove(
       "hidden"
     );
 
+
     lobbyStatus.textContent =
-      "Game created! Send the link.";
+      "Game created! Send the invite link.";
+
 
     connect();
+
 
   }catch(error){
 
     console.error(error);
 
-    message(
+    showMessage(
+      "ERROR: " +
       error.message,
       true
     );
@@ -565,28 +620,32 @@ async function createGame(){
 }
 
 
-/* ======================================
+/* =================================
    JOIN GAME
-====================================== */
+================================= */
 
 async function joinGame(){
 
   const name =
     nameInput.value.trim();
 
+
   if(!name){
 
-    message(
+    showMessage(
       "Enter your name first.",
       true
     );
 
+    nameInput.focus();
+
     return;
   }
 
+
   if(!invitedRoom){
 
-    message(
+    showMessage(
       "Invalid invite link.",
       true
     );
@@ -594,31 +653,39 @@ async function joinGame(){
     return;
   }
 
+
   joinBtn.disabled=true;
 
-  message("Joining game...");
+  showMessage(
+    "Joining game..."
+  );
+
 
   try{
 
-    /*
-      Find room.
-    */
+    /* FIND ROOM */
 
-    const room =
+    const roomResult =
       await supabase
       .from("rooms")
       .select("*")
-      .eq("id",invitedRoom)
+      .eq(
+        "id",
+        invitedRoom
+      )
       .maybeSingle();
 
 
-    if(room.error){
+    if(roomResult.error){
 
-      console.error(room.error);
+      console.error(
+        "ROOM ERROR:",
+        roomResult.error
+      );
 
-      message(
-        "ROOM: " +
-        room.error.message,
+      showMessage(
+        "ROOM ERROR: " +
+        roomResult.error.message,
         true
       );
 
@@ -628,9 +695,9 @@ async function joinGame(){
     }
 
 
-    if(!room.data){
+    if(!roomResult.data){
 
-      message(
+      showMessage(
         "Game not found.",
         true
       );
@@ -641,9 +708,12 @@ async function joinGame(){
     }
 
 
-    if(room.data.status!=="waiting"){
+    if(
+      roomResult.data.status !==
+      "waiting"
+    ){
 
-      message(
+      showMessage(
         "Game already started.",
         true
       );
@@ -654,30 +724,34 @@ async function joinGame(){
     }
 
 
-    /*
-      Count players.
-    */
+    /* COUNT PLAYERS */
 
-    const total =
+    const countResult =
       await supabase
       .from("players")
-      .select("id",{
-        count:"exact",
-        head:true
-      })
+      .select(
+        "id",
+        {
+          count:"exact",
+          head:true
+        }
+      )
       .eq(
         "room_id",
         invitedRoom
       );
 
 
-    if(total.error){
+    if(countResult.error){
 
-      console.error(total.error);
+      console.error(
+        "COUNT ERROR:",
+        countResult.error
+      );
 
-      message(
-        "COUNT: " +
-        total.error.message,
+      showMessage(
+        "COUNT ERROR: " +
+        countResult.error.message,
         true
       );
 
@@ -687,9 +761,13 @@ async function joinGame(){
     }
 
 
-    if((total.count || 0)>=15){
+    const total =
+      countResult.count || 0;
 
-      message(
+
+    if(total >= 15){
+
+      showMessage(
         "Game is full.",
         true
       );
@@ -700,31 +778,38 @@ async function joinGame(){
     }
 
 
-    /*
-      Add player.
-    */
+    /* ADD PLAYER */
 
-    const player =
+    const playerResult =
       await supabase
       .from("players")
       .insert({
+
         room_id:invitedRoom,
+
         name:name,
+
         ready:false,
+
         is_alive:true,
+
         is_impostor:false
+
       })
       .select()
       .single();
 
 
-    if(player.error){
+    if(playerResult.error){
 
-      console.error(player.error);
+      console.error(
+        "PLAYER ERROR:",
+        playerResult.error
+      );
 
-      message(
-        "PLAYER: " +
-        player.error.message,
+      showMessage(
+        "PLAYER ERROR: " +
+        playerResult.error.message,
         true
       );
 
@@ -738,23 +823,27 @@ async function joinGame(){
       invitedRoom;
 
     playerId =
-      player.data.id;
+      playerResult.data.id;
 
     host=false;
 
 
     openLobby();
 
+
     lobbyStatus.textContent =
       "Joined! Waiting for host.";
 
+
     connect();
+
 
   }catch(error){
 
     console.error(error);
 
-    message(
+    showMessage(
+      "ERROR: " +
       error.message,
       true
     );
@@ -766,9 +855,9 @@ async function joinGame(){
 }
 
 
-/* ======================================
+/* =================================
    REALTIME
-====================================== */
+================================= */
 
 function connect(){
 
@@ -784,7 +873,7 @@ function connect(){
   channel =
     supabase
     .channel(
-      "room-" +
+      "spacecrew-" +
       roomId +
       "-" +
       Date.now()
@@ -799,20 +888,21 @@ function connect(){
       },
       payload=>{
 
-        const a =
+        const newRoom =
           payload.new &&
           payload.new.room_id;
 
-        const b =
+        const oldRoom =
           payload.old &&
           payload.old.room_id;
 
+
         if(
-          a===roomId ||
-          b===roomId
+          newRoom === roomId ||
+          oldRoom === roomId
         ){
 
-          refresh();
+          refreshPlayers();
 
         }
 
@@ -830,11 +920,17 @@ function connect(){
 
         if(
           payload.new &&
-          payload.new.id===roomId &&
-          payload.new.status==="playing"
+          payload.new.id === roomId
         ){
 
-          goGame();
+          if(
+            payload.new.status ===
+            "playing"
+          ){
+
+            goToGame();
+
+          }
 
         }
 
@@ -844,16 +940,16 @@ function connect(){
     .subscribe();
 
 
-  refresh();
+  refreshPlayers();
 
 }
 
 
-/* ======================================
+/* =================================
    REFRESH PLAYERS
-====================================== */
+================================= */
 
-async function refresh(){
+async function refreshPlayers(){
 
   if(!roomId) return;
 
@@ -862,7 +958,10 @@ async function refresh(){
     await supabase
     .from("players")
     .select("*")
-    .eq("room_id",roomId)
+    .eq(
+      "room_id",
+      roomId
+    )
     .order(
       "created_at",
       {
@@ -896,7 +995,8 @@ async function refresh(){
           "div"
         );
 
-      row.className="player";
+      row.className =
+        "player";
 
 
       const avatar =
@@ -904,9 +1004,11 @@ async function refresh(){
           "div"
         );
 
-      avatar.className="avatar";
+      avatar.className =
+        "avatar";
 
-      avatar.textContent="👨‍🚀";
+      avatar.textContent =
+        "👨‍🚀";
 
 
       const playerName =
@@ -914,10 +1016,10 @@ async function refresh(){
           "div"
         );
 
-      playerName.className=
+      playerName.className =
         "playerName";
 
-      playerName.textContent=
+      playerName.textContent =
         player.name;
 
 
@@ -928,9 +1030,11 @@ async function refresh(){
             "span"
           );
 
-        badge.className="host";
+        badge.className =
+          "host";
 
-        badge.textContent="HOST";
+        badge.textContent =
+          "HOST";
 
         playerName.appendChild(
           badge
@@ -939,11 +1043,17 @@ async function refresh(){
       }
 
 
-      row.appendChild(avatar);
+      row.appendChild(
+        avatar
+      );
 
-      row.appendChild(playerName);
+      row.appendChild(
+        playerName
+      );
 
-      playersBox.appendChild(row);
+      playersBox.appendChild(
+        row
+      );
 
     }
   );
@@ -956,9 +1066,9 @@ async function refresh(){
 }
 
 
-/* ======================================
-   START
-====================================== */
+/* =================================
+   START GAME
+================================= */
 
 async function startGame(){
 
@@ -975,17 +1085,24 @@ async function startGame(){
     await supabase
     .from("rooms")
     .update({
+
       status:"playing"
+
     })
-    .eq("id",roomId);
+    .eq(
+      "id",
+      roomId
+    );
 
 
   if(result.error){
 
-    console.error(result.error);
+    console.error(
+      result.error
+    );
 
     lobbyStatus.textContent =
-      "START: " +
+      "START ERROR: " +
       result.error.message;
 
     startBtn.disabled=false;
@@ -994,18 +1111,18 @@ async function startGame(){
   }
 
 
-  goGame();
+  goToGame();
 
 }
 
 
-/* ======================================
-   GAME
-====================================== */
+/* =================================
+   GO TO GAME
+================================= */
 
-function goGame(){
+function goToGame(){
 
-  location.href =
+  window.location.href =
     "game.html?room=" +
     encodeURIComponent(roomId) +
     "&player=" +
@@ -1014,20 +1131,26 @@ function goGame(){
 }
 
 
-/* ======================================
-   COPY
-====================================== */
+/* =================================
+   COPY INVITE
+================================= */
 
 async function copyLink(){
+
+  const link =
+    invite.textContent;
+
 
   try{
 
     await navigator.clipboard.writeText(
-      invite.textContent
+      link
     );
+
 
     copyBtn.textContent =
       "COPIED ✓";
+
 
     setTimeout(
       ()=>{
@@ -1037,20 +1160,19 @@ async function copyLink(){
       1500
     );
 
+
   }catch{
 
-    alert(
-      invite.textContent
-    );
+    alert(link);
 
   }
 
 }
 
 
-/* ======================================
+/* =================================
    LEAVE
-====================================== */
+================================= */
 
 async function leaveGame(){
 
@@ -1059,7 +1181,10 @@ async function leaveGame(){
     await supabase
     .from("players")
     .delete()
-    .eq("id",playerId);
+    .eq(
+      "id",
+      playerId
+    );
 
   }
 
@@ -1073,35 +1198,45 @@ async function leaveGame(){
   }
 
 
-  location.href =
-    location.pathname;
+  window.location.href =
+    window.location.pathname;
 
 }
 
 
-/* ======================================
+/* =================================
    BUTTONS
-====================================== */
+================================= */
 
-createBtn.onclick =
-  createGame;
+createBtn.addEventListener(
+  "click",
+  createGame
+);
 
-joinBtn.onclick =
-  joinGame;
+joinBtn.addEventListener(
+  "click",
+  joinGame
+);
 
-copyBtn.onclick =
-  copyLink;
+copyBtn.addEventListener(
+  "click",
+  copyLink
+);
 
-startBtn.onclick =
-  startGame;
+startBtn.addEventListener(
+  "click",
+  startGame
+);
 
-leaveBtn.onclick =
-  leaveGame;
+leaveBtn.addEventListener(
+  "click",
+  leaveGame
+);
 
 
-/* ======================================
-   INVITE PAGE
-====================================== */
+/* =================================
+   INVITE MODE
+================================= */
 
 if(invitedRoom){
 
@@ -1112,9 +1247,9 @@ if(invitedRoom){
 }
 
 
-/* ======================================
+/* =================================
    ENTER
-====================================== */
+================================= */
 
 nameInput.addEventListener(
   "keydown",
