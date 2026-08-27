@@ -3,14 +3,10 @@
 <head>
 <meta charset="UTF-8">
 
-<meta name="viewport"
-content="width=device-width,
-initial-scale=1,
-maximum-scale=1,
-user-scalable=no,
-viewport-fit=cover">
-
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"
+>
 
 <title>SpaceCrew</title>
 
@@ -18,30 +14,30 @@ viewport-fit=cover">
 *{
   box-sizing:border-box;
   -webkit-tap-highlight-color:transparent;
+  user-select:none;
 }
 
 html,body{
   margin:0;
-  padding:0;
   width:100%;
   height:100%;
   overflow:hidden;
-  position:fixed;
-  background:#101522;
+  background:#0b1020;
   touch-action:none;
-  overscroll-behavior:none;
   font-family:Arial,sans-serif;
 }
 
 body{
-  width:100vw;
-  height:100vh;
+  position:fixed;
+  inset:0;
 }
 
 canvas{
-  display:block;
+  position:fixed;
+  inset:0;
   width:100%;
   height:100%;
+  display:block;
   touch-action:none;
 }
 
@@ -50,59 +46,97 @@ canvas{
   top:12px;
   left:12px;
   z-index:20;
+
+  padding:10px 14px;
+
+  border-radius:14px;
+
+  background:#11182bd9;
+  border:1px solid #ffffff18;
+
   color:white;
-  background:rgba(7,10,18,.75);
-  border:1px solid rgba(255,255,255,.15);
-  border-radius:12px;
-  padding:9px 13px;
-  font-size:13px;
+  font-size:14px;
   font-weight:800;
+
   pointer-events:none;
+}
+
+#room{
+  color:#9da8d4;
+  margin-left:8px;
 }
 
 #joystick{
   position:fixed;
-  z-index:30;
-  left:22px;
-  bottom:22px;
-  width:125px;
-  height:125px;
+  left:24px;
+  bottom:24px;
+
+  width:132px;
+  height:132px;
+
   border-radius:50%;
-  background:rgba(255,255,255,.08);
-  border:2px solid rgba(255,255,255,.18);
+
+  background:#ffffff12;
+  border:2px solid #ffffff25;
+
+  z-index:30;
+
   touch-action:none;
 }
 
 #stick{
   position:absolute;
-  width:54px;
-  height:54px;
-  left:33px;
-  top:33px;
+
+  width:58px;
+  height:58px;
+
+  left:35px;
+  top:35px;
+
   border-radius:50%;
-  background:rgba(255,255,255,.32);
-  border:2px solid rgba(255,255,255,.55);
+
+  background:#ffffff55;
+  border:2px solid #ffffff70;
+
   pointer-events:none;
 }
 
-#landscape{
-  display:none;
+#hint{
   position:fixed;
-  z-index:100;
-  inset:0;
-  background:#090d18;
-  color:white;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  font-size:20px;
+  right:16px;
+  bottom:18px;
+
+  color:#ffffff66;
+  font-size:12px;
+
+  z-index:20;
+  pointer-events:none;
+}
+
+#rotate{
+  position:fixed;
+  right:16px;
+  top:16px;
+
+  padding:9px 12px;
+
+  border-radius:12px;
+
+  background:#11182bd9;
+  border:1px solid #ffffff18;
+
+  color:#fff;
+  font-size:12px;
   font-weight:bold;
-  padding:30px;
+
+  z-index:25;
+
+  display:none;
 }
 
 @media (orientation:portrait){
-  #landscape{
-    display:flex;
+  #rotate{
+    display:block;
   }
 }
 </style>
@@ -110,319 +144,602 @@ canvas{
 
 <body>
 
-<div id="landscape">
-  ↻<br><br>
-  Rotate your phone horizontally
-</div>
+<canvas id="game"></canvas>
 
 <div id="hud">
-  SPACECREW
+  SPACE<span style="color:#6875ff">CREW</span>
+  <span id="room"></span>
+</div>
+
+<div id="rotate">
+  ↔ Turn your phone horizontally
 </div>
 
 <div id="joystick">
   <div id="stick"></div>
 </div>
 
-<canvas id="game"></canvas>
+<div id="hint">
+  Move
+</div>
 
-<script>
+<script type="module">
+
+import {
+  createClient
+} from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+
+/* =====================================================
+   SUPABASE
+===================================================== */
+
+const SUPABASE_URL =
+"https://egackwuidatyuihmdhvo.supabase.co";
+
+const SUPABASE_KEY =
+"sb_publishable_CC43Qm8KEQHxFByzi0VieQ_lLkSdPsl";
+
+const supabase =
+createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+
+/* =====================================================
+   URL
+===================================================== */
+
+const params =
+new URLSearchParams(
+  location.search
+);
+
+const roomId =
+params.get("room");
+
+const myPlayerId =
+params.get("player");
+
+
+document.getElementById("room").textContent =
+roomId
+  ? "ROOM"
+  : "OFFLINE";
+
 
 /* =====================================================
    CANVAS
 ===================================================== */
 
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+const canvas =
+document.getElementById("game");
 
-let vw=0;
-let vh=0;
-let dpr=1;
+const ctx =
+canvas.getContext("2d");
+
+
+let W=innerWidth;
+let H=innerHeight;
+let DPR=1;
+
 
 function resize(){
 
-  vw=window.innerWidth;
-  vh=window.innerHeight;
+  W=innerWidth;
+  H=innerHeight;
 
-  dpr=Math.min(window.devicePixelRatio||1,2);
+  DPR=Math.min(
+    devicePixelRatio || 1,
+    2
+  );
 
-  canvas.width=Math.floor(vw*dpr);
-  canvas.height=Math.floor(vh*dpr);
+  canvas.width =
+    Math.floor(W*DPR);
 
-  canvas.style.width=vw+"px";
-  canvas.style.height=vh+"px";
+  canvas.height =
+    Math.floor(H*DPR);
 
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+  canvas.style.width =
+    W+"px";
 
+  canvas.style.height =
+    H+"px";
+
+  ctx.setTransform(
+    DPR,
+    0,
+    0,
+    DPR,
+    0,
+    0
+  );
 }
+
 
 resize();
 
-window.addEventListener("resize",resize);
+window.addEventListener(
+  "resize",
+  resize
+);
 
 
 /* =====================================================
    WORLD
 ===================================================== */
 
-const WORLD_W=3200;
-const WORLD_H=1900;
+const WORLD_W=2400;
+const WORLD_H=1500;
+
+const world={
+  width:WORLD_W,
+  height:WORLD_H
+};
 
 
-/*
-   Room areas.
-   These are deliberately irregular,
-   so the map feels like a real spaceship
-   instead of a few giant rectangles.
-*/
+/* =====================================================
+   COLORS
+===================================================== */
 
-const rooms=[
-
-  {x:130,y:170,w:620,h:430},
-
-  {x:1080,y:120,w:780,h:440},
-
-  {x:2180,y:170,w:780,h:430},
-
-  {x:820,y:720,w:1560,h:470},
-
-  {x:130,y:1300,w:650,h:430},
-
-  {x:1050,y:1390,w:700,h:360},
-
-  {x:2080,y:1280,w:880,h:450}
-
+const COLORS=[
+  "#e64b4b",
+  "#4d8cff",
+  "#42c88a",
+  "#e7c84b",
+  "#a66cff",
+  "#f28b4b",
+  "#48cfe8",
+  "#ff77ad",
+  "#b8c2cc",
+  "#75d44b"
 ];
 
 
 /* =====================================================
-   COLLISION WALLS
+   LOCAL PLAYER
 ===================================================== */
+
+const me={
+  id:myPlayerId || "local",
+
+  name:"You",
+
+  x:1200,
+  y:1050,
+
+  color:COLORS[1],
+
+  moving:false,
+
+  direction:1,
+
+  walk:0
+};
+
+
+/* =====================================================
+   OTHER PLAYERS
+===================================================== */
+
+const players=new Map();
+
+
+/* =====================================================
+   MAP OBJECTS
+===================================================== */
+
+const rooms=[
+  {
+    x:120,
+    y:120,
+    w:620,
+    h:430,
+    name:"CAFETERIA"
+  },
+
+  {
+    x:880,
+    y:120,
+    w:620,
+    h:430,
+    name:"ENGINE ROOM"
+  },
+
+  {
+    x:1640,
+    y:120,
+    w:620,
+    h:430,
+    name:"SECURITY"
+  },
+
+  {
+    x:120,
+    y:850,
+    w:620,
+    h:430,
+    name:"MEDICAL"
+  },
+
+  {
+    x:880,
+    y:850,
+    w:620,
+    h:430,
+    name:"STORAGE"
+  },
+
+  {
+    x:1640,
+    y:850,
+    w:620,
+    h:430,
+    name:"LAB"
+  }
+];
+
 
 const walls=[];
 
-function wall(x,y,w,h){
-  walls.push({x,y,w,h});
+
+/* =====================================================
+   WALLS
+===================================================== */
+
+function addWall(
+  x,
+  y,
+  w,
+  h
+){
+
+  walls.push({
+    x,
+    y,
+    w,
+    h
+  });
+
 }
 
 
-/* LEFT TOP */
+/* outer */
 
-wall(130,170,620,28);
-wall(130,170,28,430);
-wall(722,170,28,155);
-wall(722,445,28,155);
-wall(130,572,215,28);
-wall(535,572,215,28);
+addWall(
+  60,
+  60,
+  2280,
+  32
+);
 
+addWall(
+  60,
+  1408,
+  2280,
+  32
+);
 
-/* TOP CENTER */
+addWall(
+  60,
+  60,
+  32,
+  1380
+);
 
-wall(1080,120,780,28);
-wall(1080,532,780,28);
-
-wall(1080,120,28,145);
-wall(1080,390,28,142);
-
-wall(1832,120,28,130);
-wall(1832,410,28,122);
-
-
-/* RIGHT TOP */
-
-wall(2180,170,780,28);
-wall(2180,572,780,28);
-
-wall(2180,170,28,150);
-wall(2180,420,28,152);
-
-wall(2932,170,28,180);
-wall(2932,390,28,182);
+addWall(
+  2308,
+  60,
+  32,
+  1380
+);
 
 
-/* CENTRAL AREA */
+/* room walls */
 
-/* left wall */
-wall(820,720,28,145);
-wall(820,1035,28,155);
+rooms.forEach(
+  r=>{
 
-/* right wall */
-wall(2352,720,28,170);
-wall(2352,1025,28,165);
+    addWall(
+      r.x,
+      r.y,
+      r.w,
+      20
+    );
 
+    addWall(
+      r.x,
+      r.y+r.h-20,
+      r.w,
+      20
+    );
 
-/* upper central */
-wall(850,720,280,28);
-wall(1420,720,420,28);
-wall(2130,720,222,28);
+    addWall(
+      r.x,
+      r.y,
+      20,
+      r.h
+    );
 
-/* lower central */
-wall(850,1162,300,28);
-wall(1450,1162,380,28);
-wall(2100,1162,252,28);
+    addWall(
+      r.x+r.w-20,
+      r.y,
+      20,
+      r.h
+    );
 
-
-/* LEFT BOTTOM */
-
-wall(130,1300,650,28);
-wall(130,1702,650,28);
-
-wall(130,1300,28,402);
-wall(752,1300,28,150);
-wall(752,1550,28,152);
-
-
-/* BOTTOM CENTER */
-
-wall(1050,1390,700,28);
-wall(1050,1722,700,28);
-
-wall(1050,1390,28,120);
-wall(1050,1640,28,82);
-
-wall(1722,1390,28,145);
-wall(1722,1640,28,82);
+  }
+);
 
 
-/* RIGHT BOTTOM */
+/* doors */
 
-wall(2080,1280,880,28);
-wall(2080,1702,880,28);
+const doors=[
+  {x:395,y:540,w:90,h:35},
+  {x:1140,y:540,w:90,h:35},
+  {x:1900,y:540,w:90,h:35},
 
-wall(2080,1280,28,150);
-wall(2080,1550,28,152);
-
-wall(2932,1280,28,170);
-wall(2932,1550,28,152);
+  {x:395,y:825,w:90,h:35},
+  {x:1140,y:825,w:90,h:35},
+  {x:1900,y:825,w:90,h:35}
+];
 
 
 /* =====================================================
-   PLAYER
+   TASK / DECORATIONS
 ===================================================== */
 
-const player={
-  x:1600,
-  y:940,
-  radius:25,
-  speed:235,
-  color:"#5967f2",
-  angle:0
-};
+const decorations=[
+  {x:300,y:270,type:"table"},
+  {x:500,y:390,type:"table"},
+
+  {x:1050,y:280,type:"engine"},
+  {x:1300,y:350,type:"engine"},
+
+  {x:1810,y:290,type:"screen"},
+  {x:2100,y:380,type:"screen"},
+
+  {x:300,y:1010,type:"bed"},
+  {x:520,y:1120,type:"bed"},
+
+  {x:1050,y:1010,type:"crate"},
+  {x:1300,y:1120,type:"crate"},
+
+  {x:1810,y:1020,type:"machine"},
+  {x:2100,y:1120,type:"machine"}
+];
 
 
 /* =====================================================
-   CAMERA
+   COLLISION
 ===================================================== */
 
-const camera={
-  x:0,
-  y:0
-};
+function circleRectCollision(
+  cx,
+  cy,
+  r,
+  rect
+){
+
+  const nearestX =
+    Math.max(
+      rect.x,
+      Math.min(
+        cx,
+        rect.x+rect.w
+      )
+    );
+
+  const nearestY =
+    Math.max(
+      rect.y,
+      Math.min(
+        cy,
+        rect.y+rect.h
+      )
+    );
+
+  const dx =
+    cx-nearestX;
+
+  const dy =
+    cy-nearestY;
+
+  return (
+    dx*dx+
+    dy*dy
+  ) < r*r;
+}
 
 
-/*
-  Fixed zoom.
+function canMove(
+  x,
+  y
+){
 
-  It NEVER changes during gameplay.
-  This is important for iPhone performance.
-*/
+  const radius=24;
 
-const CAMERA_ZOOM=1;
+  if(
+    x<90 ||
+    y<90 ||
+    x>2310 ||
+    y>1410
+  ){
+
+    return false;
+  }
+
+
+  for(
+    const wall of walls
+  ){
+
+    if(
+      circleRectCollision(
+        x,
+        y,
+        radius,
+        wall
+      )
+    ){
+
+      let nearDoor=false;
+
+      for(
+        const d of doors
+      ){
+
+        const expanded={
+          x:d.x-20,
+          y:d.y-20,
+          w:d.w+40,
+          h:d.h+40
+        };
+
+        if(
+          circleRectCollision(
+            x,
+            y,
+            radius,
+            expanded
+          )
+        ){
+
+          nearDoor=true;
+
+          break;
+        }
+
+      }
+
+      if(!nearDoor)
+        return false;
+
+    }
+
+  }
+
+  return true;
+}
 
 
 /* =====================================================
    JOYSTICK
 ===================================================== */
 
-const joystick=
-document.getElementById("joystick");
+const joystick =
+document.getElementById(
+  "joystick"
+);
 
-const stick=
-document.getElementById("stick");
+const stick =
+document.getElementById(
+  "stick"
+);
 
 let joyX=0;
 let joyY=0;
-let joystickActive=false;
-let pointerId=null;
+let pointer=null;
 
-function updateJoystick(clientX,clientY){
 
-  const r=joystick.getBoundingClientRect();
+function updateJoystick(
+  x,
+  y
+){
 
-  const cx=r.left+r.width/2;
-  const cy=r.top+r.height/2;
+  const rect =
+    joystick.getBoundingClientRect();
 
-  let dx=clientX-cx;
-  let dy=clientY-cy;
+  const cx =
+    rect.left+
+    rect.width/2;
+
+  const cy =
+    rect.top+
+    rect.height/2;
+
+  let dx=x-cx;
+  let dy=y-cy;
 
   const max=38;
 
-  const distance=Math.hypot(dx,dy);
+  const len=
+    Math.hypot(
+      dx,
+      dy
+    );
 
-  if(distance>max){
+  if(len>max){
 
-    dx=dx/distance*max;
-    dy=dy/distance*max;
+    dx=
+      dx/len*max;
+
+    dy=
+      dy/len*max;
 
   }
 
-  joyX=dx/max;
-  joyY=dy/max;
+  joyX=
+    dx/max;
+
+  joyY=
+    dy/max;
 
   stick.style.transform=
-    "translate("+dx+"px,"+dy+"px)";
+    `translate(${dx}px,${dy}px)`;
 
 }
 
-joystick.addEventListener(
-  "pointerdown",
-  e=>{
-
-    e.preventDefault();
-
-    joystickActive=true;
-    pointerId=e.pointerId;
-
-    try{
-      joystick.setPointerCapture(pointerId);
-    }catch{}
-
-    updateJoystick(
-      e.clientX,
-      e.clientY
-    );
-
-  },
-  {passive:false}
-);
-
-joystick.addEventListener(
-  "pointermove",
-  e=>{
-
-    if(!joystickActive) return;
-
-    e.preventDefault();
-
-    updateJoystick(
-      e.clientX,
-      e.clientY
-    );
-
-  },
-  {passive:false}
-);
 
 function stopJoystick(){
 
-  joystickActive=false;
+  pointer=null;
 
   joyX=0;
   joyY=0;
 
   stick.style.transform=
-    "translate(0px,0px)";
-
+    "translate(0,0)";
 }
+
+
+joystick.addEventListener(
+  "pointerdown",
+  e=>{
+
+    pointer=e.pointerId;
+
+    joystick.setPointerCapture(
+      pointer
+    );
+
+    updateJoystick(
+      e.clientX,
+      e.clientY
+    );
+
+  }
+);
+
+
+joystick.addEventListener(
+  "pointermove",
+  e=>{
+
+    if(
+      pointer!==e.pointerId
+    )
+      return;
+
+    updateJoystick(
+      e.clientX,
+      e.clientY
+    );
+
+  }
+);
+
 
 joystick.addEventListener(
   "pointerup",
@@ -434,11 +751,6 @@ joystick.addEventListener(
   stopJoystick
 );
 
-joystick.addEventListener(
-  "lostpointercapture",
-  stopJoystick
-);
-
 
 /* =====================================================
    KEYBOARD
@@ -446,68 +758,34 @@ joystick.addEventListener(
 
 const keys={};
 
-window.addEventListener("keydown",e=>{
-  keys[e.key.toLowerCase()]=true;
-});
 
-window.addEventListener("keyup",e=>{
-  keys[e.key.toLowerCase()]=false;
-});
-
-
-/* =====================================================
-   COLLISION
-===================================================== */
-
-function circleRectCollision(cx,cy,r,rect){
-
-  const closestX=
-    Math.max(
-      rect.x,
-      Math.min(cx,rect.x+rect.w)
-    );
-
-  const closestY=
-    Math.max(
-      rect.y,
-      Math.min(cy,rect.y+rect.h)
-    );
-
-  const dx=cx-closestX;
-  const dy=cy-closestY;
-
-  return dx*dx+dy*dy<r*r;
-
-}
-
-
-function blocked(x,y){
-
-  for(const w of walls){
-
-    if(circleRectCollision(
-      x,
-      y,
-      player.radius,
-      w
-    )){
-      return true;
-    }
-
+addEventListener(
+  "keydown",
+  e=>{
+    keys[
+      e.key.toLowerCase()
+    ]=true;
   }
+);
 
-  return false;
 
-}
+addEventListener(
+  "keyup",
+  e=>{
+    keys[
+      e.key.toLowerCase()
+    ]=false;
+  }
+);
 
 
 /* =====================================================
-   DRAW SPACE FLOOR
+   DRAW MAP
 ===================================================== */
 
 function drawFloor(){
 
-  ctx.fillStyle="#151b2a";
+  ctx.fillStyle="#171d2d";
 
   ctx.fillRect(
     0,
@@ -517,126 +795,141 @@ function drawFloor(){
   );
 
 
-  /*
-    subtle floor tiles
-  */
+  /* floor tiles */
 
-  ctx.strokeStyle="rgba(130,145,180,.07)";
+  ctx.strokeStyle="#20283c";
   ctx.lineWidth=2;
 
-  const size=80;
-
-  for(let x=0;x<WORLD_W;x+=size){
+  for(
+    let x=90;
+    x<WORLD_W;
+    x+=80
+  ){
 
     ctx.beginPath();
-    ctx.moveTo(x,0);
-    ctx.lineTo(x,WORLD_H);
+
+    ctx.moveTo(
+      x,
+      90
+    );
+
+    ctx.lineTo(
+      x,
+      WORLD_H-90
+    );
+
     ctx.stroke();
 
   }
 
-  for(let y=0;y<WORLD_H;y+=size){
+
+  for(
+    let y=90;
+    y<WORLD_H;
+    y+=80
+  ){
 
     ctx.beginPath();
-    ctx.moveTo(0,y);
-    ctx.lineTo(WORLD_W,y);
+
+    ctx.moveTo(
+      90,
+      y
+    );
+
+    ctx.lineTo(
+      WORLD_W-90,
+      y
+    );
+
     ctx.stroke();
 
   }
 
-}
+
+  /* rooms */
+
+  rooms.forEach(
+    r=>{
+
+      ctx.fillStyle="#252d43";
+
+      ctx.fillRect(
+        r.x+20,
+        r.y+20,
+        r.w-40,
+        r.h-40
+      );
 
 
-/* =====================================================
-   ROOM FLOOR
-===================================================== */
+      ctx.fillStyle="#ffffff10";
 
-function drawRooms(){
-
-  for(const r of rooms){
-
-    ctx.fillStyle="#252d43";
-
-    ctx.fillRect(
-      r.x,
-      r.y,
-      r.w,
-      r.h
-    );
+      ctx.fillRect(
+        r.x+30,
+        r.y+30,
+        r.w-60,
+        42
+      );
 
 
-    ctx.strokeStyle="#3e4967";
-    ctx.lineWidth=7;
+      ctx.fillStyle="#ffffff45";
 
-    ctx.strokeRect(
-      r.x,
-      r.y,
-      r.w,
-      r.h
-    );
+      ctx.font=
+        "bold 14px Arial";
 
-  }
+      ctx.textAlign="center";
 
+      ctx.fillText(
+        r.name,
+        r.x+r.w/2,
+        r.y+57
+      );
 
-  /*
-    central corridor
-  */
-
-  ctx.fillStyle="#1c2437";
-
-  ctx.fillRect(
-    750,
-    865,
-    1630,
-    170
+    }
   );
 
-}
+
+  /* central corridors */
+
+  ctx.fillStyle="#20273a";
+
+  ctx.fillRect(
+    740,
+    550,
+    140,
+    300
+  );
+
+  ctx.fillRect(
+    1500,
+    550,
+    140,
+    300
+  );
+
+  ctx.fillRect(
+    740,
+    670,
+    900,
+    160
+  );
 
 
-/* =====================================================
-   WALL DRAWING
-===================================================== */
+  /* walls */
 
-function drawWalls(){
+  walls.forEach(
+    w=>{
 
-  for(const w of walls){
+      ctx.fillStyle="#39435e";
 
-    /*
-      shadow
-    */
-
-    ctx.fillStyle="rgba(0,0,0,.28)";
-
-    ctx.fillRect(
-      w.x+5,
-      w.y+7,
-      w.w,
-      w.h
-    );
+      ctx.fillRect(
+        w.x,
+        w.y,
+        w.w,
+        w.h
+      );
 
 
-    /*
-      wall body
-    */
-
-    ctx.fillStyle="#68738e";
-
-    ctx.fillRect(
-      w.x,
-      w.y,
-      w.w,
-      w.h
-    );
-
-
-    /*
-      inner highlight
-    */
-
-    ctx.fillStyle="#7e89a3";
-
-    if(w.w>w.h){
+      ctx.fillStyle="#525e7b";
 
       ctx.fillRect(
         w.x,
@@ -645,298 +938,270 @@ function drawWalls(){
         5
       );
 
-    }else{
+    }
+  );
+
+
+  /* doors */
+
+  doors.forEach(
+    d=>{
+
+      ctx.fillStyle="#64d8ff";
 
       ctx.fillRect(
-        w.x,
-        w.y,
-        5,
-        w.h
+        d.x,
+        d.y,
+        d.w,
+        d.h
+      );
+
+      ctx.fillStyle="#ffffff55";
+
+      ctx.fillRect(
+        d.x+10,
+        d.y+7,
+        d.w-20,
+        5
       );
 
     }
-
-
-    /*
-      dark edge
-    */
-
-    ctx.strokeStyle="#424b65";
-    ctx.lineWidth=3;
-
-    ctx.strokeRect(
-      w.x,
-      w.y,
-      w.w,
-      w.h
-    );
-
-  }
+  );
 
 }
 
 
 /* =====================================================
-   DOORS / OPENINGS DECORATION
+   DECORATIONS
 ===================================================== */
 
-function drawDoors(){
+function drawDecoration(
+  d
+){
 
-  const doors=[
+  ctx.save();
 
-    [750,370,75,45],
-    [1050,570,90,70],
-    [1830,570,90,70],
-    [2170,365,75,45],
-
-    [820,870,50,65],
-    [2330,870,50,65],
-
-    [760,1430,70,70],
-    [1040,1510,70,70],
-    [1710,1510,70,70],
-    [2070,1430,70,70]
-
-  ];
-
-  for(const d of doors){
-
-    ctx.fillStyle="#151c2e";
-
-    ctx.fillRect(
-      d[0],
-      d[1],
-      d[2],
-      d[3]
-    );
-
-    ctx.strokeStyle="#596681";
-    ctx.lineWidth=3;
-
-    ctx.strokeRect(
-      d[0],
-      d[1],
-      d[2],
-      d[3]
-    );
-
-  }
-
-}
+  ctx.translate(
+    d.x,
+    d.y
+  );
 
 
-/* =====================================================
-   ROOM OBJECTS
-===================================================== */
+  if(d.type==="table"){
 
-function drawObject(x,y,w,h,type){
-
-  if(type==="console"){
-
-    ctx.fillStyle="#303a56";
-
-    ctx.fillRect(
-      x,
-      y,
-      w,
-      h
-    );
-
-    ctx.fillStyle="#72dff4";
-
-    ctx.fillRect(
-      x+8,
-      y+7,
-      w-16,
-      h*.35
-    );
-
-    ctx.fillStyle="#151c2c";
-
-    ctx.fillRect(
-      x+8,
-      y+h*.55,
-      w-16,
-      5
-    );
-
-  }
-
-
-  if(type==="engine"){
-
-    ctx.fillStyle="#3a435e";
+    ctx.fillStyle="#424d69";
 
     ctx.beginPath();
 
     ctx.arc(
-      x,
-      y,
+      0,
+      0,
+      48,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+
+    ctx.fillStyle="#596681";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      0,
+      0,
+      36,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+
+    ctx.fillStyle="#273047";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      0,
+      0,
+      13,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+  }
+
+
+  if(d.type==="engine"){
+
+    ctx.fillStyle="#46516d";
+
+    ctx.fillRect(
+      -45,
+      -30,
+      90,
+      60
+    );
+
+    ctx.fillStyle="#5d6b8d";
+
+    ctx.fillRect(
+      -30,
+      -18,
+      60,
+      36
+    );
+
+    ctx.fillStyle="#53d5ff";
+
+    ctx.fillRect(
+      -8,
+      -10,
+      16,
+      20
+    );
+
+  }
+
+
+  if(d.type==="screen"){
+
+    ctx.fillStyle="#303b57";
+
+    ctx.fillRect(
+      -48,
+      -32,
+      96,
+      64
+    );
+
+    ctx.fillStyle="#5ce4ff";
+
+    ctx.fillRect(
+      -36,
+      -22,
+      72,
+      35
+    );
+
+  }
+
+
+  if(d.type==="bed"){
+
+    ctx.fillStyle="#59647e";
+
+    ctx.fillRoundRect(
+      -60,
+      -28,
+      120,
+      56,
+      12
+    );
+
+    ctx.fillStyle="#7e8aa4";
+
+    ctx.fillRect(
+      -50,
+      -20,
       42,
-      0,
-      Math.PI*2
+      40
     );
-
-    ctx.fill();
-
-    ctx.strokeStyle="#697793";
-    ctx.lineWidth=5;
-
-    ctx.stroke();
-
-    ctx.fillStyle="#68e5ff";
-
-    ctx.beginPath();
-
-    ctx.arc(
-      x,
-      y,
-      18,
-      0,
-      Math.PI*2
-    );
-
-    ctx.fill();
 
   }
 
 
-  if(type==="table"){
+  if(d.type==="crate"){
 
-    ctx.fillStyle="#343d57";
+    ctx.fillStyle="#765d3d";
 
-    ctx.beginPath();
-
-    ctx.ellipse(
-      x,
-      y,
-      w,
-      h,
-      0,
-      0,
-      Math.PI*2
+    ctx.fillRect(
+      -35,
+      -35,
+      70,
+      70
     );
 
-    ctx.fill();
+    ctx.strokeStyle="#aa8959";
 
-    ctx.strokeStyle="#65718d";
-    ctx.lineWidth=5;
+    ctx.lineWidth=6;
 
-    ctx.stroke();
+    ctx.strokeRect(
+      -28,
+      -28,
+      56,
+      56
+    );
 
   }
+
+
+  if(d.type==="machine"){
+
+    ctx.fillStyle="#404b67";
+
+    ctx.fillRect(
+      -50,
+      -38,
+      100,
+      76
+    );
+
+    ctx.fillStyle="#65e0ff";
+
+    ctx.fillRect(
+      -30,
+      -18,
+      60,
+      25
+    );
+
+  }
+
+
+  ctx.restore();
 
 }
 
 
 /* =====================================================
-   MAP OBJECTS
+   DRAW PLAYER
 ===================================================== */
 
-function drawObjects(){
+function drawPlayer(
+  p,
+  isMe=false
+){
 
-  /* left top */
-
-  drawObject(
-    300,310,
-    115,60,
-    "console"
-  );
-
-  drawObject(
-    550,470,
-    90,55,
-    "console"
-  );
+  const bob =
+    p.moving
+      ? Math.sin(p.walk)*2
+      : 0;
 
 
-  /* top */
+  ctx.save();
 
-  drawObject(
-    1270,300,
-    110,65,
-    "console"
-  );
-
-  drawObject(
-    1630,350,
-    42,42,
-    "engine"
+  ctx.translate(
+    p.x,
+    p.y+bob
   );
 
 
-  /* right */
+  /* shadow */
 
-  drawObject(
-    2440,300,
-    110,65,
-    "console"
-  );
-
-  drawObject(
-    2760,460,
-    42,42,
-    "engine"
-  );
-
-
-  /* central */
-
-  drawObject(
-    1600,
-    950,
-    150,
-    90,
-    "table"
-  );
-
-
-  /* bottom */
-
-  drawObject(
-    330,1450,
-    110,65,
-    "console"
-  );
-
-  drawObject(
-    1300,1530,
-    110,65,
-    "console"
-  );
-
-  drawObject(
-    2380,1450,
-    110,65,
-    "console"
-  );
-
-}
-
-
-/* =====================================================
-   PLAYER
-===================================================== */
-
-function drawPlayer(){
-
-  const x=player.x;
-  const y=player.y;
-
-
-  /*
-    shadow
-  */
-
-  ctx.fillStyle="rgba(0,0,0,.35)";
+  ctx.fillStyle="#00000055";
 
   ctx.beginPath();
 
   ctx.ellipse(
-    x,
-    y+24,
-    25,
-    9,
+    0,
+    24,
+    24,
+    10,
     0,
     0,
     Math.PI*2
@@ -945,92 +1210,85 @@ function drawPlayer(){
   ctx.fill();
 
 
-  /*
-    backpack
-  */
+  /* legs */
 
-  ctx.fillStyle="#3c4660";
+  const step =
+    p.moving
+      ? Math.sin(p.walk)*6
+      : 0;
 
-  ctx.roundRect(
-    x-27,
-    y-8,
+
+  ctx.fillStyle =
+    shadeColor(
+      p.color,
+      -25
+    );
+
+
+  ctx.fillRoundRect(
+    -17+step,
     13,
-    30,
-    6,
+    13,
+    22,
     6
   );
 
-  ctx.fill();
+
+  ctx.fillRoundRect(
+    4-step,
+    13,
+    13,
+    22,
+    6
+  );
 
 
-  /*
-    body
-  */
+  /* backpack */
 
-  ctx.fillStyle=player.color;
+  ctx.fillStyle =
+    shadeColor(
+      p.color,
+      -40
+    );
+
+  ctx.fillRoundRect(
+    -29,
+    -18,
+    15,
+    38,
+    6
+  );
+
+
+  /* body */
+
+  ctx.fillStyle=p.color;
 
   ctx.beginPath();
 
-  ctx.arc(
-    x,
-    y,
-    25,
-    0,
-    Math.PI*2
-  );
-
-  ctx.fill();
-
-
-  /*
-    bottom body
-  */
-
-  ctx.fillStyle=player.color;
-
-  ctx.fillRect(
-    x-25,
-    y,
+  ctx.roundRect(
+    -25,
+    -30,
     50,
-    16
-  );
-
-
-  /*
-    visor
-  */
-
-  ctx.fillStyle="#a9efff";
-
-  ctx.beginPath();
-
-  ctx.ellipse(
-    x+8,
-    y-7,
-    16,
-    11,
-    -.15,
-    0,
-    Math.PI*2
+    58,
+    18
   );
 
   ctx.fill();
 
 
-  /*
-    visor dark side
-  */
+  /* visor */
 
-  ctx.fillStyle="#66b9d0";
+  ctx.fillStyle="#9be9ff";
 
   ctx.beginPath();
 
   ctx.ellipse(
-    x+12,
-    y-5,
-    8,
     7,
-    -.15,
+    -10,
+    21,
+    14,
+    0,
     0,
     Math.PI*2
   );
@@ -1038,147 +1296,442 @@ function drawPlayer(){
   ctx.fill();
 
 
-  /*
-    visor shine
-  */
-
-  ctx.fillStyle="white";
-
-  ctx.beginPath();
-
-  ctx.arc(
-    x+10,
-    y-10,
-    3,
-    0,
-    Math.PI*2
-  );
-
-  ctx.fill();
-
-
-  /*
-    feet
-  */
-
-  ctx.fillStyle="#4b5570";
+  ctx.fillStyle="#d8f8ff";
 
   ctx.beginPath();
 
   ctx.ellipse(
-    x-13,
-    y+20,
-    11,
-    7,
-    0,
-    0,
-    Math.PI*2
-  );
-
-  ctx.fill();
-
-  ctx.beginPath();
-
-  ctx.ellipse(
-    x+13,
-    y+20,
-    11,
-    7,
-    0,
+    12,
+    -14,
+    10,
+    5,
+    -.2,
     0,
     Math.PI*2
   );
 
   ctx.fill();
+
+
+  /* name */
+
+  if(!isMe){
+
+    ctx.font=
+      "bold 13px Arial";
+
+    ctx.textAlign=
+      "center";
+
+    ctx.fillStyle="#ffffffdd";
+
+    ctx.fillText(
+      p.name || "Crewmate",
+      0,
+      -48
+    );
+
+  }
+
+
+  ctx.restore();
 
 }
 
 
 /* =====================================================
-   CAMERA UPDATE
+   COLOR HELPERS
 ===================================================== */
 
-function updateCamera(dt){
+function shadeColor(
+  color,
+  amount
+){
 
-  const targetX=
-    player.x-vw/2;
+  let c=
+    color.replace(
+      "#",
+      ""
+    );
 
-  const targetY=
-    player.y-vh/2;
+  let num=
+    parseInt(
+      c,
+      16
+    );
+
+  let r=
+    (num>>16)+amount;
+
+  let g=
+    ((num>>8)&255)+amount;
+
+  let b=
+    (num&255)+amount;
+
+  r=Math.max(
+    0,
+    Math.min(255,r)
+  );
+
+  g=Math.max(
+    0,
+    Math.min(255,g)
+  );
+
+  b=Math.max(
+    0,
+    Math.min(255,b)
+  );
+
+  return "#"+
+    ((r<<16)|
+     (g<<8)|
+     b)
+    .toString(16)
+    .padStart(6,"0");
+
+}
 
 
-  /*
-    Smooth follow.
-    No zoom.
-  */
+/* =====================================================
+   CAMERA
+===================================================== */
 
-  const smooth=
-    1-Math.pow(.001,dt);
+const camera={
+  x:me.x,
+  y:me.y
+};
 
+
+function updateCamera(){
 
   camera.x +=
-    (targetX-camera.x)*smooth;
+    (me.x-camera.x)*.12;
 
   camera.y +=
-    (targetY-camera.y)*smooth;
+    (me.y-camera.y)*.12;
+
+}
 
 
-  /*
-    Clamp camera to map
-  */
+/* =====================================================
+   NETWORK POSITION
+===================================================== */
 
-  const maxX=
-    Math.max(0,WORLD_W-vw);
-
-  const maxY=
-    Math.max(0,WORLD_H-vh);
+let lastSend=0;
 
 
-  camera.x=
-    Math.max(
-      0,
-      Math.min(
-        maxX,
-        camera.x
-      )
-    );
+async function sendPosition(){
 
-  camera.y=
-    Math.max(
-      0,
-      Math.min(
-        maxY,
-        camera.y
-      )
+  if(!roomId || !myPlayerId)
+    return;
+
+
+  const now=Date.now();
+
+  if(now-lastSend<80)
+    return;
+
+  lastSend=now;
+
+
+  await supabase
+    .from("players")
+    .update({
+
+      x:me.x,
+      y:me.y
+
+    })
+    .eq(
+      "id",
+      myPlayerId
     );
 
 }
 
 
 /* =====================================================
-   UPDATE PLAYER
+   LOAD PLAYERS
 ===================================================== */
 
-function updatePlayer(dt){
+async function loadPlayers(){
+
+  if(!roomId)
+    return;
+
+
+  const result =
+    await supabase
+    .from("players")
+    .select("*")
+    .eq(
+      "room_id",
+      roomId
+    );
+
+
+  if(result.error){
+
+    console.error(
+      result.error
+    );
+
+    return;
+  }
+
+
+  (result.data || [])
+  .forEach(
+    p=>{
+
+      if(p.id===myPlayerId){
+
+        me.name=
+          p.name || "You";
+
+        if(
+          p.x!==null &&
+          p.x!==undefined
+        )
+          me.x=p.x;
+
+        if(
+          p.y!==null &&
+          p.y!==undefined
+        )
+          me.y=p.y;
+
+        return;
+
+      }
+
+
+      players.set(
+        p.id,
+        {
+
+          id:p.id,
+
+          name:
+            p.name || "Crewmate",
+
+          x:
+            p.x ?? 1200,
+
+          y:
+            p.y ?? 750,
+
+          color:
+            COLORS[
+              Math.abs(
+                hashCode(p.id)
+              )%COLORS.length
+            ],
+
+          moving:false,
+
+          direction:1,
+
+          walk:0
+
+        }
+      );
+
+    }
+  );
+
+}
+
+
+function hashCode(str){
+
+  let h=0;
+
+  for(
+    let i=0;
+    i<str.length;
+    i++
+  ){
+
+    h=
+      ((h<<5)-h)+
+      str.charCodeAt(i);
+
+    h|=0;
+
+  }
+
+  return h;
+
+}
+
+
+/* =====================================================
+   REALTIME
+===================================================== */
+
+let channel=null;
+
+
+function connectRealtime(){
+
+  if(!roomId)
+    return;
+
+
+  channel =
+    supabase
+    .channel(
+      "game-"+roomId
+    )
+
+    .on(
+      "postgres_changes",
+
+      {
+        event:"*",
+        schema:"public",
+        table:"players",
+        filter:
+          "room_id=eq."+roomId
+      },
+
+      payload=>{
+
+        const p =
+          payload.new;
+
+
+        if(
+          payload.eventType==="DELETE"
+        ){
+
+          players.delete(
+            payload.old.id
+          );
+
+          return;
+        }
+
+
+        if(!p || p.id===myPlayerId)
+          return;
+
+
+        let existing=
+          players.get(p.id);
+
+
+        if(!existing){
+
+          existing={
+
+            id:p.id,
+
+            name:p.name ||
+              "Crewmate",
+
+            x:p.x ?? 1200,
+
+            y:p.y ?? 750,
+
+            color:
+              COLORS[
+                Math.abs(
+                  hashCode(p.id)
+                )%COLORS.length
+              ],
+
+            moving:false,
+
+            direction:1,
+
+            walk:0
+
+          };
+
+          players.set(
+            p.id,
+            existing
+          );
+
+        }
+
+
+        const oldX=existing.x;
+        const oldY=existing.y;
+
+
+        existing.x=
+          p.x ?? existing.x;
+
+        existing.y=
+          p.y ?? existing.y;
+
+        existing.name=
+          p.name || existing.name;
+
+
+        if(
+          Math.abs(
+            existing.x-oldX
+          )>.5 ||
+          Math.abs(
+            existing.y-oldY
+          )>.5
+        ){
+
+          existing.moving=true;
+
+          existing.walk+=.8;
+
+        }else{
+
+          existing.moving=false;
+
+        }
+
+      }
+    )
+
+    .subscribe();
+
+}
+
+
+/* =====================================================
+   MOVEMENT
+===================================================== */
+
+const SPEED=3.6;
+
+
+function updateMovement(){
 
   let x=joyX;
   let y=joyY;
 
 
-  if(keys["w"]||keys["arrowup"])
+  if(keys["w"] || keys["arrowup"])
     y=-1;
 
-  if(keys["s"]||keys["arrowdown"])
+  if(keys["s"] || keys["arrowdown"])
     y=1;
 
-  if(keys["a"]||keys["arrowleft"])
+  if(keys["a"] || keys["arrowleft"])
     x=-1;
 
-  if(keys["d"]||keys["arrowright"])
+  if(keys["d"] || keys["arrowright"])
     x=1;
 
 
-  const len=Math.hypot(x,y);
+  const len=
+    Math.hypot(
+      x,
+      y
+    );
 
 
   if(len>1){
@@ -1189,83 +1742,117 @@ function updatePlayer(dt){
   }
 
 
-  if(len>.05){
+  me.moving=
+    Math.abs(x)>.05 ||
+    Math.abs(y)>.05;
 
-    player.angle=
-      Math.atan2(y,x);
+
+  if(me.moving){
+
+    me.walk+=.25;
 
 
-    const amount=
-      player.speed*dt;
+    if(Math.abs(x)>.05){
+
+      me.direction=
+        x>0
+          ? 1
+          : -1;
+
+    }
+
 
     const nx=
-      player.x+x*amount;
+      me.x+x*SPEED;
 
     const ny=
-      player.y+y*amount;
+      me.y+y*SPEED;
 
 
-    /*
-      Separate X/Y collision.
-      This makes sliding around
-      corners much smoother.
-    */
+    if(
+      canMove(
+        nx,
+        me.y
+      )
+    ){
 
-    if(!blocked(nx,player.y))
-      player.x=nx;
+      me.x=nx;
 
-    if(!blocked(player.x,ny))
-      player.y=ny;
+    }
+
+
+    if(
+      canMove(
+        me.x,
+        ny
+      )
+    ){
+
+      me.y=ny;
+
+    }
+
+
+    sendPosition();
 
   }
-
-
-  /*
-    world boundary
-  */
-
-  player.x=
-    Math.max(
-      player.radius,
-      Math.min(
-        WORLD_W-player.radius,
-        player.x
-      )
-    );
-
-  player.y=
-    Math.max(
-      player.radius,
-      Math.min(
-        WORLD_H-player.radius,
-        player.y
-      )
-    );
 
 }
 
 
 /* =====================================================
-   RENDER
+   DRAW
 ===================================================== */
 
-function render(){
+function draw(){
 
   ctx.clearRect(
     0,
     0,
-    vw,
-    vh
+    W,
+    H
   );
+
+
+  updateCamera();
+
+
+  /*
+    Zoom is fixed.
+    No pinch zoom.
+    No browser zoom.
+  */
+
+  const ZOOM=
+    Math.min(
+      W/850,
+      H/520
+    );
+
+  const scale=
+    Math.max(
+      .62,
+      Math.min(
+        1,
+        ZOOM
+      )
+    );
 
 
   ctx.save();
 
 
-  /*
-    Camera translation.
-    Zoom is permanently 1.
-  */
+  ctx.translate(
+    W/2,
+    H/2
+  );
+
+
+  ctx.scale(
+    scale,
+    scale
+  );
+
 
   ctx.translate(
     -camera.x,
@@ -1275,15 +1862,34 @@ function render(){
 
   drawFloor();
 
-  drawRooms();
 
-  drawDoors();
+  decorations.forEach(
+    drawDecoration
+  );
 
-  drawObjects();
 
-  drawWalls();
+  /*
+    other players
+  */
 
-  drawPlayer();
+  players.forEach(
+    p=>{
+      drawPlayer(
+        p,
+        false
+      );
+    }
+  );
+
+
+  /*
+    local player
+  */
+
+  drawPlayer(
+    me,
+    true
+  );
 
 
   ctx.restore();
@@ -1295,76 +1901,153 @@ function render(){
    GAME LOOP
 ===================================================== */
 
-let lastTime=
-  performance.now();
+function loop(){
 
+  updateMovement();
 
-function loop(now){
+  draw();
 
-  let dt=
-    (now-lastTime)/1000;
-
-  lastTime=now;
-
-
-  /*
-    Prevent huge movement
-    if the browser freezes briefly.
-  */
-
-  dt=Math.min(dt,.033);
-
-
-  updatePlayer(dt);
-
-  updateCamera(dt);
-
-  render();
-
-
-  requestAnimationFrame(loop);
+  requestAnimationFrame(
+    loop
+  );
 
 }
 
-requestAnimationFrame(loop);
+
+loop();
 
 
 /* =====================================================
-   PREVENT IPHONE GESTURES
+   STARTUP
 ===================================================== */
 
-document.addEventListener(
-  "gesturestart",
-  e=>e.preventDefault(),
-  {passive:false}
-);
+async function startup(){
 
-document.addEventListener(
-  "gesturechange",
-  e=>e.preventDefault(),
-  {passive:false}
-);
+  if(!roomId){
 
-document.addEventListener(
-  "gestureend",
-  e=>e.preventDefault(),
-  {passive:false}
-);
+    me.name="Player";
+
+    return;
+
+  }
+
+
+  await loadPlayers();
+
+  connectRealtime();
+
+}
+
+
+startup();
+
+
+/* =====================================================
+   PREVENT PAGE ZOOM / SCROLL
+===================================================== */
 
 document.addEventListener(
   "touchmove",
   e=>{
-
-    if(e.target===canvas ||
-       joystick.contains(e.target)){
-
-      e.preventDefault();
-
-    }
-
+    e.preventDefault();
   },
-  {passive:false}
+  {
+    passive:false
+  }
 );
+
+
+document.addEventListener(
+  "gesturestart",
+  e=>{
+    e.preventDefault();
+  }
+);
+
+
+document.addEventListener(
+  "gesturechange",
+  e=>{
+    e.preventDefault();
+  }
+);
+
+
+document.addEventListener(
+  "gestureend",
+  e=>{
+    e.preventDefault();
+  }
+);
+
+
+/* =====================================================
+   CANVAS ROUND RECT POLYFILL
+===================================================== */
+
+if(!CanvasRenderingContext2D.prototype.fillRoundRect){
+
+  CanvasRenderingContext2D.prototype.fillRoundRect=
+  function(
+    x,
+    y,
+    w,
+    h,
+    r
+  ){
+
+    r=Math.min(
+      r,
+      w/2,
+      h/2
+    );
+
+    this.beginPath();
+
+    this.moveTo(
+      x+r,
+      y
+    );
+
+    this.arcTo(
+      x+w,
+      y,
+      x+w,
+      y+h,
+      r
+    );
+
+    this.arcTo(
+      x+w,
+      y+h,
+      x,
+      y+h,
+      r
+    );
+
+    this.arcTo(
+      x,
+      y+h,
+      x,
+      y,
+      r
+    );
+
+    this.arcTo(
+      x,
+      y,
+      x+w,
+      y,
+      r
+    );
+
+    this.closePath();
+
+    this.fill();
+
+  };
+
+}
 
 </script>
 
