@@ -19,7 +19,7 @@ html,body{
   overflow:hidden;
   font-family:Arial,sans-serif;
   background:
-    radial-gradient(circle at 50% 20%,#202957 0%,#080b18 55%);
+    radial-gradient(circle at 50% 15%,#222b5c 0%,#080b18 60%);
   color:white;
 }
 
@@ -43,8 +43,8 @@ body{
   text-align:center;
   font-size:46px;
   font-weight:900;
-  margin-bottom:8px;
   letter-spacing:-2px;
+  margin-bottom:8px;
 }
 
 .logo span{
@@ -58,7 +58,7 @@ body{
 }
 
 .card{
-  background:rgba(18,23,42,.94);
+  background:rgba(18,23,42,.96);
   border:1px solid #30395d;
   border-radius:24px;
   padding:22px;
@@ -110,15 +110,12 @@ button:disabled{
   background:#20b86b;
 }
 
-.hidden{
-  display:none!important;
+.red{
+  background:#d94a5f;
 }
 
-.roomTitle{
-  text-align:center;
-  font-size:14px;
-  color:#9da6c7;
-  margin-bottom:5px;
+.hidden{
+  display:none!important;
 }
 
 .inviteLink{
@@ -211,10 +208,7 @@ button:disabled{
       CREATE GAME
     </button>
 
-    <div
-      id="inviteJoin"
-      class="hidden"
-    >
+    <div id="inviteJoin" class="hidden">
 
       <div class="subtitle">
         YOU WERE INVITED
@@ -251,7 +245,7 @@ button:disabled{
 
   <div class="card">
 
-    <div class="roomTitle">
+    <div class="subtitle">
       INVITE YOUR FRIENDS
     </div>
 
@@ -321,7 +315,7 @@ const SUPABASE_URL =
 "https://egackwuidatyuihmdhvo.supabase.co";
 
 const SUPABASE_KEY =
-"YOUR_ sb_publishable_CC43Qm8KEQHxFByzi0VieQ_lLkSdPsl";
+"sb_publishable_CC43Qm8KEQHxFByzi0VieQ_lLkSdPsl";
 
 
 const supabase =
@@ -335,10 +329,10 @@ createClient(
    STATE
 ========================================= */
 
-let roomId = null;
-let playerId = null;
-let isHost = false;
-let channel = null;
+let roomId=null;
+let playerId=null;
+let isHost=false;
+let channel=null;
 
 
 /* =========================================
@@ -360,11 +354,11 @@ document.getElementById("homeStatus");
 const createBtn =
 document.getElementById("createBtn");
 
-const joinBtn =
-document.getElementById("joinBtn");
-
 const inviteJoin =
 document.getElementById("inviteJoin");
+
+const joinBtn =
+document.getElementById("joinBtn");
 
 const inviteLink =
 document.getElementById("inviteLink");
@@ -383,27 +377,16 @@ document.getElementById("lobbyStatus");
 
 
 /* =========================================
-   URL ROOM
+   INVITE ROOM
 ========================================= */
 
-const params =
+const urlParams =
 new URLSearchParams(
   window.location.search
 );
 
 const inviteRoom =
-params.get("room");
-
-
-/* =========================================
-   ROOM ID
-========================================= */
-
-function makeRoomId(){
-
-  return crypto.randomUUID();
-
-}
+urlParams.get("room");
 
 
 /* =========================================
@@ -418,31 +401,34 @@ function showLobby(){
 
 
   const link =
-  window.location.origin +
-  window.location.pathname +
-  "?room=" +
-  encodeURIComponent(roomId);
+    window.location.origin +
+    window.location.pathname +
+    "?room=" +
+    encodeURIComponent(roomId);
 
 
   inviteLink.textContent =
-  link;
+    link;
 
 }
 
 
 /* =========================================
-   CREATE GAME
+   CREATE
 ========================================= */
 
 async function createGame(){
 
   const name =
-  nameInput.value.trim();
+    nameInput.value.trim();
+
 
   if(!name){
 
     homeStatus.textContent =
-    "Enter your name first.";
+      "Enter your name first.";
+
+    nameInput.focus();
 
     return;
   }
@@ -451,40 +437,38 @@ async function createGame(){
   createBtn.disabled=true;
 
   homeStatus.textContent =
-  "Creating game...";
+    "Creating game...";
 
 
-  const newRoomId =
-  makeRoomId();
+  /*
+    We don't need to create
+    the UUID ourselves.
+    Supabase does it.
+  */
+
+  const roomResult =
+    await supabase
+    .from("rooms")
+    .insert({
+
+      max_players:15,
+
+      status:"waiting"
+
+    })
+    .select()
+    .single();
 
 
-  const result =
-  await supabase
-  .from("rooms")
-  .insert({
-
-    id:newRoomId,
-
-    code:newRoomId
-      .replaceAll("-","")
-      .slice(0,6)
-      .toUpperCase(),
-
-    max_players:15,
-
-    status:"waiting"
-
-  });
-
-
-  if(result.error){
+  if(roomResult.error){
 
     console.error(
-      result.error
+      "ROOM ERROR:",
+      roomResult.error
     );
 
     homeStatus.textContent =
-    "Could not create game.";
+      "Could not create game.";
 
     createBtn.disabled=false;
 
@@ -493,21 +477,68 @@ async function createGame(){
 
 
   roomId =
-  newRoomId;
+    roomResult.data.id;
 
   isHost=true;
 
 
-  const success =
-  await addPlayer(name);
+  const playerResult =
+    await supabase
+    .from("players")
+    .insert({
+
+      room_id:roomId,
+
+      name:name,
+
+      ready:false,
+
+      is_alive:true,
+
+      is_impostor:false
+
+    })
+    .select()
+    .single();
 
 
-  if(!success){
+  if(playerResult.error){
+
+    console.error(
+      "PLAYER ERROR:",
+      playerResult.error
+    );
+
+
+    await supabase
+      .from("rooms")
+      .delete()
+      .eq("id",roomId);
+
+
+    homeStatus.textContent =
+      "Could not enter game.";
 
     createBtn.disabled=false;
 
     return;
   }
+
+
+  playerId =
+    playerResult.data.id;
+
+
+  /*
+    Save host in the room.
+  */
+
+  await supabase
+    .from("rooms")
+    .update({
+      host_id:playerId
+    })
+    .eq("id",roomId);
 
 
   showLobby();
@@ -516,24 +547,31 @@ async function createGame(){
     "hidden"
   );
 
+  lobbyStatus.textContent =
+    "Game created! Send the invite link.";
+
+
   setupRealtime();
 
 }
 
 
 /* =========================================
-   JOIN GAME
+   JOIN
 ========================================= */
 
 async function joinGame(){
 
   const name =
-  nameInput.value.trim();
+    nameInput.value.trim();
+
 
   if(!name){
 
     homeStatus.textContent =
-    "Enter your name first.";
+      "Enter your name first.";
+
+    nameInput.focus();
 
     return;
   }
@@ -542,7 +580,7 @@ async function joinGame(){
   if(!inviteRoom){
 
     homeStatus.textContent =
-    "Invite link is missing.";
+      "Invalid invite link.";
 
     return;
   }
@@ -551,25 +589,25 @@ async function joinGame(){
   joinBtn.disabled=true;
 
   homeStatus.textContent =
-  "Joining game...";
+    "Joining game...";
 
 
-  const result =
-  await supabase
-  .from("rooms")
-  .select("*")
-  .eq("id",inviteRoom)
-  .maybeSingle();
+  const roomResult =
+    await supabase
+    .from("rooms")
+    .select("*")
+    .eq("id",inviteRoom)
+    .maybeSingle();
 
 
-  if(result.error){
+  if(roomResult.error){
 
     console.error(
-      result.error
+      roomResult.error
     );
 
     homeStatus.textContent =
-    "Could not connect.";
+      "Could not connect.";
 
     joinBtn.disabled=false;
 
@@ -577,10 +615,14 @@ async function joinGame(){
   }
 
 
-  if(!result.data){
+  const room =
+    roomResult.data;
+
+
+  if(!room){
 
     homeStatus.textContent =
-    "Game not found.";
+      "Game not found.";
 
     joinBtn.disabled=false;
 
@@ -588,10 +630,10 @@ async function joinGame(){
   }
 
 
-  if(result.data.status!=="waiting"){
+  if(room.status!=="waiting"){
 
     homeStatus.textContent =
-    "Game already started.";
+      "Game already started.";
 
     joinBtn.disabled=false;
 
@@ -600,28 +642,26 @@ async function joinGame(){
 
 
   const countResult =
-  await supabase
-  .from("players")
-  .select("id",{
-    count:"exact",
-    head:true
-  })
-  .eq(
-    "room_id",
-    inviteRoom
-  );
+    await supabase
+    .from("players")
+    .select("id",{
+      count:"exact",
+      head:true
+    })
+    .eq(
+      "room_id",
+      inviteRoom
+    );
 
 
-  if(
-    countResult.error
-  ){
+  if(countResult.error){
 
     console.error(
       countResult.error
     );
 
     homeStatus.textContent =
-    "Could not check players.";
+      "Could not check players.";
 
     joinBtn.disabled=false;
 
@@ -629,13 +669,14 @@ async function joinGame(){
   }
 
 
-  if(
-    (countResult.count || 0)
-    >=15
-  ){
+  const count =
+    countResult.count || 0;
+
+
+  if(count>=15){
 
     homeStatus.textContent =
-    "Game is full.";
+      "Game is full.";
 
     joinBtn.disabled=false;
 
@@ -644,16 +685,39 @@ async function joinGame(){
 
 
   roomId =
-  inviteRoom;
+    inviteRoom;
 
   isHost=false;
 
 
-  const success =
-  await addPlayer(name);
+  const playerResult =
+    await supabase
+    .from("players")
+    .insert({
+
+      room_id:roomId,
+
+      name:name,
+
+      ready:false,
+
+      is_alive:true,
+
+      is_impostor:false
+
+    })
+    .select()
+    .single();
 
 
-  if(!success){
+  if(playerResult.error){
+
+    console.error(
+      playerResult.error
+    );
+
+    homeStatus.textContent =
+      "Could not join game.";
 
     joinBtn.disabled=false;
 
@@ -661,59 +725,17 @@ async function joinGame(){
   }
 
 
+  playerId =
+    playerResult.data.id;
+
+
   showLobby();
 
+  lobbyStatus.textContent =
+    "Joined! Waiting for host...";
+
+
   setupRealtime();
-
-}
-
-
-/* =========================================
-   ADD PLAYER
-========================================= */
-
-async function addPlayer(name){
-
-  const result =
-  await supabase
-  .from("players")
-  .insert({
-
-    room_id:roomId,
-
-    name:name,
-
-    ready:false,
-
-    is_alive:true,
-
-    is_impostor:false
-
-  })
-  .select()
-  .single();
-
-
-  if(result.error){
-
-    console.error(
-      "ADD PLAYER:",
-      result.error
-    );
-
-    alert(
-      "Could not join game."
-    );
-
-    return false;
-  }
-
-
-  playerId =
-  result.data.id;
-
-
-  return true;
 
 }
 
@@ -734,78 +756,75 @@ function setupRealtime(){
 
 
   channel =
-  supabase
-  .channel(
-    "spacecrew-room-"+roomId
-  )
+    supabase
+    .channel(
+      "spacecrew-"+roomId+
+      "-"+Date.now()
+    )
 
-  .on(
+    .on(
+      "postgres_changes",
 
-    "postgres_changes",
+      {
+        event:"*",
+        schema:"public",
+        table:"players"
+      },
 
-    {
-      event:"*",
-      schema:"public",
-      table:"players"
-    },
+      payload=>{
 
-    payload=>{
+        const newRoom =
+          payload.new &&
+          payload.new.room_id;
 
-      if(
-        payload.new &&
-        payload.new.room_id === roomId
-      ){
+        const oldRoom =
+          payload.old &&
+          payload.old.room_id;
 
-        refreshPlayers();
-
-      }
-
-      if(
-        payload.old &&
-        payload.old.room_id === roomId
-      ){
-
-        refreshPlayers();
-
-      }
-
-    }
-
-  )
-
-  .on(
-
-    "postgres_changes",
-
-    {
-      event:"UPDATE",
-      schema:"public",
-      table:"rooms"
-    },
-
-    payload=>{
-
-      if(
-        payload.new &&
-        payload.new.id === roomId
-      ){
 
         if(
-          payload.new.status ===
-          "playing"
+          newRoom===roomId ||
+          oldRoom===roomId
         ){
 
-          goToGame();
+          refreshPlayers();
 
         }
 
       }
+    )
 
-    }
+    .on(
+      "postgres_changes",
 
-  )
+      {
+        event:"UPDATE",
+        schema:"public",
+        table:"rooms"
+      },
 
-  .subscribe();
+      payload=>{
+
+        if(
+          payload.new &&
+          payload.new.id===roomId
+        ){
+
+          if(
+            payload.new.status===
+            "playing"
+          ){
+
+            goToGame();
+
+          }
+
+        }
+
+      }
+    )
+
+    .subscribe();
 
 
   refreshPlayers();
@@ -823,19 +842,19 @@ async function refreshPlayers(){
 
 
   const result =
-  await supabase
-  .from("players")
-  .select("*")
-  .eq(
-    "room_id",
-    roomId
-  )
-  .order(
-    "created_at",
-    {
-      ascending:true
-    }
-  );
+    await supabase
+    .from("players")
+    .select("*")
+    .eq(
+      "room_id",
+      roomId
+    )
+    .order(
+      "created_at",
+      {
+        ascending:true
+      }
+    );
 
 
   if(result.error){
@@ -849,13 +868,13 @@ async function refreshPlayers(){
 
 
   const players =
-  result.data || [];
+    result.data || [];
 
 
   const list =
-  document.getElementById(
-    "players"
-  );
+    document.getElementById(
+      "players"
+    );
 
 
   list.innerHTML="";
@@ -865,52 +884,56 @@ async function refreshPlayers(){
     (player,index)=>{
 
       const row =
-      document.createElement(
-        "div"
-      );
+        document.createElement(
+          "div"
+        );
 
       row.className =
-      "player";
+        "player";
 
 
       const avatar =
-      document.createElement(
-        "div"
-      );
+        document.createElement(
+          "div"
+        );
 
       avatar.className =
-      "avatar";
+        "avatar";
 
       avatar.textContent =
-      "👨‍🚀";
+        "👨‍🚀";
 
 
-      const name =
-      document.createElement(
-        "div"
-      );
+      const playerName =
+        document.createElement(
+          "div"
+        );
 
-      name.className =
-      "playerName";
+      playerName.className =
+        "playerName";
 
-      name.textContent =
-      player.name;
+      playerName.textContent =
+        player.name;
 
+
+      /*
+        First player is host.
+      */
 
       if(index===0){
 
         const host =
-        document.createElement(
-          "span"
-        );
+          document.createElement(
+            "span"
+          );
 
         host.className =
-        "host";
+          "host";
 
         host.textContent =
-        "HOST";
+          "HOST";
 
-        name.appendChild(
+        playerName.appendChild(
           host
         );
 
@@ -922,7 +945,7 @@ async function refreshPlayers(){
       );
 
       row.appendChild(
-        name
+        playerName
       );
 
       list.appendChild(
@@ -934,39 +957,39 @@ async function refreshPlayers(){
 
 
   document
-  .getElementById(
-    "playerCount"
-  )
-  .textContent =
-  players.length +
-  " / 15 players";
+    .getElementById(
+      "playerCount"
+    )
+    .textContent =
+      players.length+
+      " / 15 players";
 
 }
 
 
 /* =========================================
-   COPY LINK
+   COPY
 ========================================= */
 
-async function copyInvite(){
-
-  const link =
-  inviteLink.textContent;
-
+async function copyLink(){
 
   try{
 
     await navigator.clipboard.writeText(
-      link
+      inviteLink.textContent
     );
 
+
     copyBtn.textContent =
-    "COPIED ✓";
+      "COPIED ✓";
+
 
     setTimeout(
       ()=>{
+
         copyBtn.textContent =
-        "COPY INVITE LINK";
+          "COPY INVITE LINK";
+
       },
       1500
     );
@@ -974,7 +997,7 @@ async function copyInvite(){
   }catch{
 
     alert(
-      link
+      inviteLink.textContent
     );
 
   }
@@ -983,7 +1006,7 @@ async function copyInvite(){
 
 
 /* =========================================
-   START GAME
+   START
 ========================================= */
 
 async function startGame(){
@@ -994,19 +1017,19 @@ async function startGame(){
   startButton.disabled=true;
 
   lobbyStatus.textContent =
-  "Starting game...";
+    "Starting game...";
 
 
   const result =
-  await supabase
-  .from("rooms")
-  .update({
-    status:"playing"
-  })
-  .eq(
-    "id",
-    roomId
-  );
+    await supabase
+    .from("rooms")
+    .update({
+      status:"playing"
+    })
+    .eq(
+      "id",
+      roomId
+    );
 
 
   if(result.error){
@@ -1016,7 +1039,7 @@ async function startGame(){
     );
 
     lobbyStatus.textContent =
-    "Could not start game.";
+      "Could not start game.";
 
     startButton.disabled=false;
 
@@ -1036,10 +1059,10 @@ async function startGame(){
 function goToGame(){
 
   window.location.href =
-  "game.html?room="+
-  encodeURIComponent(roomId)+
-  "&player="+
-  encodeURIComponent(playerId);
+    "game.html?room="+
+    encodeURIComponent(roomId)+
+    "&player="+
+    encodeURIComponent(playerId);
 
 }
 
@@ -1049,15 +1072,6 @@ function goToGame(){
 ========================================= */
 
 async function leaveGame(){
-
-  if(channel){
-
-    await supabase.removeChannel(
-      channel
-    );
-
-  }
-
 
   if(playerId){
 
@@ -1072,8 +1086,17 @@ async function leaveGame(){
   }
 
 
+  if(channel){
+
+    await supabase.removeChannel(
+      channel
+    );
+
+  }
+
+
   window.location.href =
-  window.location.pathname;
+    window.location.pathname;
 
 }
 
@@ -1094,7 +1117,7 @@ joinBtn.addEventListener(
 
 copyBtn.addEventListener(
   "click",
-  copyInvite
+  copyLink
 );
 
 startButton.addEventListener(
@@ -1127,9 +1150,9 @@ if(inviteRoom){
 
 nameInput.addEventListener(
   "keydown",
-  e=>{
+  event=>{
 
-    if(e.key==="Enter"){
+    if(event.key==="Enter"){
 
       if(inviteRoom){
 
